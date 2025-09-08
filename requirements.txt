@@ -1,0 +1,12 @@
+# AnnotationCanvas 依赖包
+
+# 核心依赖
+PySide6>=6.0.0
+pyqtgraph>=0.12.0
+
+# 开发依赖（可选）
+pytest>=6.0.0
+pytest-qt>=4.0.0
+black>=21.0.0
+flake8>=3.8.0
+mypy>=0.800.0
