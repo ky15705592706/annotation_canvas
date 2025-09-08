@@ -1,2 +1,0 @@
-[console_scripts]
-annotation-canvas-demo = annotation_canvas.demo:main
