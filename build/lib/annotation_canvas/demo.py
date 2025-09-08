@@ -1,0 +1,337 @@
+"""
+AnnotationCanvas 演示程序
+
+这个演示程序展示了如何使用 AnnotationCanvas 库创建图形标注应用。
+"""
+
+import sys
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
+    QWidget, QPushButton, QLabel, QComboBox, QGroupBox,
+    QMenuBar, QMenu, QStatusBar, QMessageBox
+)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QKeySequence
+
+# 处理相对导入问题
+try:
+    from .ui.annotation_canvas import AnnotationCanvas
+    from .core.enums import DrawType, DrawColor, PenWidth
+except ImportError:
+    # 如果相对导入失败，尝试绝对导入
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from annotation_canvas.ui.annotation_canvas import AnnotationCanvas
+    from annotation_canvas.core.enums import DrawType, DrawColor, PenWidth
+
+
+class AnnotationCanvasDemo(QMainWindow):
+    """AnnotationCanvas 演示窗口"""
+    
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("AnnotationCanvas 演示程序")
+        self.setGeometry(100, 100, 1200, 800)
+        
+        # 创建画布
+        self.canvas = AnnotationCanvas()
+        
+        # 初始化UI
+        self._init_ui()
+        self._init_menu()
+        self._init_status_bar()
+        
+        # 连接信号
+        self._connect_signals()
+        
+        # 设置默认工具
+        self.canvas.set_current_tool(DrawType.POINT)
+    
+    def _init_ui(self):
+        """初始化用户界面"""
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # 主布局
+        main_layout = QHBoxLayout(central_widget)
+        
+        # 左侧控制面板
+        control_panel = self._create_control_panel()
+        main_layout.addWidget(control_panel, 0)
+        
+        # 右侧画布
+        main_layout.addWidget(self.canvas, 1)
+    
+    def _create_control_panel(self):
+        """创建控制面板"""
+        panel = QGroupBox("控制面板")
+        layout = QVBoxLayout(panel)
+        
+        # 工具选择
+        tool_group = QGroupBox("绘图工具")
+        tool_layout = QVBoxLayout(tool_group)
+        
+        self.tool_combo = QComboBox()
+        self.tool_combo.addItems([
+            "点 (Point)",
+            "矩形 (Rectangle)", 
+            "椭圆 (Ellipse)",
+            "多边形 (Polygon)"
+        ])
+        tool_layout.addWidget(QLabel("选择工具:"))
+        tool_layout.addWidget(self.tool_combo)
+        
+        # 颜色选择
+        color_group = QGroupBox("颜色设置")
+        color_layout = QVBoxLayout(color_group)
+        
+        self.color_combo = QComboBox()
+        self.color_combo.addItems([
+            "红色 (Red)",
+            "绿色 (Green)",
+            "蓝色 (Blue)",
+            "黄色 (Yellow)",
+            "紫色 (Purple)",
+            "橙色 (Orange)",
+            "黑色 (Black)",
+            "白色 (White)"
+        ])
+        color_layout.addWidget(QLabel("选择颜色:"))
+        color_layout.addWidget(self.color_combo)
+        
+        # 线宽选择
+        width_group = QGroupBox("线宽设置")
+        width_layout = QVBoxLayout(width_group)
+        
+        self.width_combo = QComboBox()
+        self.width_combo.addItems([
+            "细 (Thin)",
+            "中等 (Medium)",
+            "粗 (Thick)"
+        ])
+        width_layout.addWidget(QLabel("选择线宽:"))
+        width_layout.addWidget(self.width_combo)
+        
+        # 操作按钮
+        action_group = QGroupBox("操作")
+        action_layout = QVBoxLayout(action_group)
+        
+        self.clear_btn = QPushButton("清空画布")
+        self.undo_btn = QPushButton("撤销 (Ctrl+Z)")
+        self.redo_btn = QPushButton("重做 (Ctrl+Y)")
+        
+        action_layout.addWidget(self.clear_btn)
+        action_layout.addWidget(self.undo_btn)
+        action_layout.addWidget(self.redo_btn)
+        
+        # 缩放按钮
+        zoom_group = QGroupBox("缩放")
+        zoom_layout = QVBoxLayout(zoom_group)
+        
+        self.zoom_in_btn = QPushButton("放大 (Ctrl+=)")
+        self.zoom_out_btn = QPushButton("缩小 (Ctrl+-)")
+        self.zoom_fit_btn = QPushButton("适应窗口")
+        
+        zoom_layout.addWidget(self.zoom_in_btn)
+        zoom_layout.addWidget(self.zoom_out_btn)
+        zoom_layout.addWidget(self.zoom_fit_btn)
+        
+        # 添加到主布局
+        layout.addWidget(tool_group)
+        layout.addWidget(color_group)
+        layout.addWidget(width_group)
+        layout.addWidget(action_group)
+        layout.addWidget(zoom_group)
+        layout.addStretch()
+        
+        return panel
+    
+    def _init_menu(self):
+        """初始化菜单栏"""
+        menubar = self.menuBar()
+        
+        # 文件菜单
+        file_menu = menubar.addMenu("文件(&F)")
+        
+        new_action = QAction("新建(&N)", self)
+        new_action.setShortcut(QKeySequence.StandardKey.New)
+        new_action.triggered.connect(self._new_file)
+        file_menu.addAction(new_action)
+        
+        file_menu.addSeparator()
+        
+        exit_action = QAction("退出(&X)", self)
+        exit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        
+        # 编辑菜单
+        edit_menu = menubar.addMenu("编辑(&E)")
+        
+        undo_action = QAction("撤销(&U)", self)
+        # 移除快捷键，让画布自己处理
+        undo_action.triggered.connect(self._undo)
+        edit_menu.addAction(undo_action)
+        
+        redo_action = QAction("重做(&R)", self)
+        # 移除快捷键，让画布自己处理
+        redo_action.triggered.connect(self._redo)
+        edit_menu.addAction(redo_action)
+        
+        edit_menu.addSeparator()
+        
+        clear_action = QAction("清空(&C)", self)
+        clear_action.triggered.connect(self._clear_canvas)
+        edit_menu.addAction(clear_action)
+        
+        # 视图菜单
+        view_menu = menubar.addMenu("视图(&V)")
+        
+        zoom_in_action = QAction("放大(&I)", self)
+        zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
+        zoom_in_action.triggered.connect(self._zoom_in)
+        view_menu.addAction(zoom_in_action)
+        
+        zoom_out_action = QAction("缩小(&O)", self)
+        zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
+        zoom_out_action.triggered.connect(self._zoom_out)
+        view_menu.addAction(zoom_out_action)
+        
+        zoom_fit_action = QAction("适应窗口(&F)", self)
+        zoom_fit_action.triggered.connect(self._zoom_fit)
+        view_menu.addAction(zoom_fit_action)
+        
+        # 帮助菜单
+        help_menu = menubar.addMenu("帮助(&H)")
+        
+        about_action = QAction("关于(&A)", self)
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+    
+    def _init_status_bar(self):
+        """初始化状态栏"""
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("就绪")
+    
+    def _connect_signals(self):
+        """连接信号"""
+        # 工具选择
+        self.tool_combo.currentIndexChanged.connect(self._on_tool_changed)
+        self.color_combo.currentIndexChanged.connect(self._on_color_changed)
+        self.width_combo.currentIndexChanged.connect(self._on_width_changed)
+        
+        # 按钮
+        self.clear_btn.clicked.connect(self._clear_canvas)
+        self.undo_btn.clicked.connect(self._undo)
+        self.redo_btn.clicked.connect(self._redo)
+        self.zoom_in_btn.clicked.connect(self._zoom_in)
+        self.zoom_out_btn.clicked.connect(self._zoom_out)
+        self.zoom_fit_btn.clicked.connect(self._zoom_fit)
+    
+    def _on_tool_changed(self, index):
+        """工具改变"""
+        tools = [DrawType.POINT, DrawType.RECTANGLE, DrawType.ELLIPSE, DrawType.POLYGON]
+        if 0 <= index < len(tools):
+            self.canvas.set_current_tool(tools[index])
+            self.status_bar.showMessage(f"当前工具: {tools[index].name}")
+    
+    def _on_color_changed(self, index):
+        """颜色改变"""
+        colors = [
+            DrawColor.RED, DrawColor.GREEN, DrawColor.BLUE, DrawColor.YELLOW,
+            DrawColor.PURPLE, DrawColor.ORANGE, DrawColor.BLACK, DrawColor.WHITE
+        ]
+        if 0 <= index < len(colors):
+            self.canvas.set_current_color(colors[index])
+            self.status_bar.showMessage(f"当前颜色: {colors[index].name}")
+    
+    def _on_width_changed(self, index):
+        """线宽改变"""
+        widths = [PenWidth.THIN, PenWidth.MEDIUM, PenWidth.THICK]
+        if 0 <= index < len(widths):
+            self.canvas.set_current_width(widths[index])
+            self.status_bar.showMessage(f"当前线宽: {widths[index].name}")
+    
+    def _new_file(self):
+        """新建文件"""
+        reply = QMessageBox.question(
+            self, "新建文件", 
+            "确定要清空当前画布吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._clear_canvas()
+    
+    def _clear_canvas(self):
+        """清空画布"""
+        self.canvas.clear_all_shapes()
+        self.status_bar.showMessage("画布已清空")
+    
+    def _undo(self):
+        """撤销"""
+        self.canvas.undo()
+        self.status_bar.showMessage("撤销操作")
+    
+    def _redo(self):
+        """重做"""
+        self.canvas.redo()
+        self.status_bar.showMessage("重做操作")
+    
+    def _zoom_in(self):
+        """放大"""
+        self.canvas.zoom_in()
+        self.status_bar.showMessage("放大")
+    
+    def _zoom_out(self):
+        """缩小"""
+        self.canvas.zoom_out()
+        self.status_bar.showMessage("缩小")
+    
+    def _zoom_fit(self):
+        """适应窗口"""
+        self.canvas.auto_range()
+        self.status_bar.showMessage("适应窗口")
+    
+    def _show_about(self):
+        """显示关于对话框"""
+        QMessageBox.about(
+            self, "关于 AnnotationCanvas",
+            """
+            <h3>AnnotationCanvas 演示程序</h3>
+            <p>这是一个基于 PySide6 和 PyQtGraph 的图形标注画布组件。</p>
+            <p><b>主要特性：</b></p>
+            <ul>
+            <li>支持点、矩形、椭圆、多边形等多种图形类型</li>
+            <li>实时预览和交互操作</li>
+            <li>完整的撤销重做系统</li>
+            <li>图形悬停高亮和控制点操作</li>
+            <li>网格吸附和坐标转换</li>
+            </ul>
+            <p><b>使用方法：</b></p>
+            <ul>
+            <li>选择绘图工具，在画布上点击创建图形</li>
+            <li>选中图形后可以拖拽移动或缩放</li>
+            <li>使用 Ctrl+Z 撤销，Ctrl+Y 重做</li>
+            <li>使用 Ctrl+= 放大，Ctrl+- 缩小</li>
+            </ul>
+            """
+        )
+
+
+def main():
+    """主函数"""
+    app = QApplication(sys.argv)
+    app.setApplicationName("AnnotationCanvas Demo")
+    app.setApplicationVersion("1.0.0")
+    
+    # 创建演示窗口
+    demo = AnnotationCanvasDemo()
+    demo.show()
+    
+    # 运行应用程序
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

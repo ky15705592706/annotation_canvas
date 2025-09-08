@@ -1,0 +1,8 @@
+2025-09-08 20:14:50,445 - annotation_canvas.utils.config - INFO - 配置文件不存在，使用默认配置: config.json
+2025-09-08 20:14:53,553 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
+2025-09-08 20:14:53,810 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
+2025-09-08 20:14:54,140 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
+2025-09-08 20:14:54,710 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
+2025-09-08 20:14:54,903 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
+2025-09-08 20:14:55,104 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
+2025-09-08 20:14:55,381 - annotation_canvas.services.shape_creation_service - INFO - 成功创建图形: POINT
