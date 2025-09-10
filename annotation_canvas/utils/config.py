@@ -85,7 +85,6 @@ class Config:
                 }
             },
             "operations": {
-                "max_history_size": 100,
                 "auto_save_interval": 300,  # 秒
                 "save_file_format": "json"
             },
@@ -226,10 +225,6 @@ class Config:
         """获取控制点颜色"""
         colors = self.get("control_points.colors", {})
         return colors.get(point_type, (100, 100, 100))
-    
-    def get_max_history_size(self) -> int:
-        """获取最大历史记录大小"""
-        return self.get("operations.max_history_size", 100)
     
     def get_auto_save_interval(self) -> int:
         """获取自动保存间隔（秒）"""

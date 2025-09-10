@@ -10,8 +10,7 @@ import time
 class OperationManager:
     """操作管理器"""
     
-    def __init__(self, max_history_size: int = 100):
-        self.max_history_size = max_history_size
+    def __init__(self):
         self.operation_history: List[BaseOperation] = []
         self.current_index = -1
     
@@ -25,11 +24,6 @@ class OperationManager:
             # 添加到历史记录
             self.operation_history.append(operation)
             self.current_index = len(self.operation_history) - 1
-            
-            # 检查历史记录大小
-            if len(self.operation_history) > self.max_history_size:
-                self.operation_history.pop(0)
-                self.current_index -= 1
             
             return True
         return False
@@ -124,14 +118,12 @@ class OperationManager:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式，用于序列化"""
         return {
-            'max_history_size': self.max_history_size,
             'current_index': self.current_index,
             'operation_history': [op.to_dict() for op in self.operation_history]
         }
     
     def from_dict(self, data: Dict[str, Any], context):
         """从字典创建实例，用于反序列化"""
-        self.max_history_size = data.get('max_history_size', 100)
         self.current_index = data.get('current_index', -1)
         
         # 清空现有数据
