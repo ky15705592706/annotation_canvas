@@ -57,6 +57,7 @@ from .operations.create_operation import CreateOperation
 from .operations.delete_operation import DeleteOperation
 from .operations.move_operation import MoveOperation
 from .operations.scale_operation import ScaleOperation
+from .operations.import_operation import ImportOperation
 
 # 导入工厂和服务
 from .factories.shape_factory import ShapeFactory
@@ -112,6 +113,7 @@ __all__ = [
     "DeleteOperation",
     "MoveOperation",
     "ScaleOperation",
+    "ImportOperation",
     
     # 工厂和服务
     "ShapeFactory",

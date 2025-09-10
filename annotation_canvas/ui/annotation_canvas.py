@@ -15,7 +15,10 @@ from ..models import BaseShape
 from ..utils.constants import (
     CanvasConstants, ZoomConstants, StateConstants
 )
+from ..utils.logger import get_logger
 from .annotation_controller import AnnotationController
+
+logger = get_logger(__name__)
 
 
 class AnnotationCanvas(PlotWidget):
@@ -259,8 +262,19 @@ class AnnotationCanvas(PlotWidget):
     
     # 数据管理方法
     def add_shape(self, shape: BaseShape) -> None:
-        """添加图形"""
+        """添加图形（不支持撤销）"""
         self.controller.add_shape(shape)
+    
+    def add_shape_with_undo(self, shape: BaseShape) -> bool:
+        """添加图形（支持撤销）"""
+        success = self.controller.add_shape_with_undo(shape)
+        
+        if success:
+            # 更新状态栏
+            self._update_status_bar()
+            logger.info("添加图形成功，可以通过 Ctrl+Z 撤销")
+        
+        return success
     
     def remove_shape(self, shape: BaseShape) -> bool:
         """移除图形"""
@@ -288,8 +302,19 @@ class AnnotationCanvas(PlotWidget):
         return self.controller.export_data()
     
     def import_data(self, data: dict) -> bool:
-        """导入数据"""
+        """导入数据（不支持撤销）"""
         return self.controller.import_data(data)
+    
+    def import_data_with_undo(self, data: dict) -> bool:
+        """导入数据（支持撤销）"""
+        success = self.controller.import_data_with_undo(data)
+        
+        if success:
+            # 更新状态栏
+            self._update_status_bar()
+            logger.info("导入数据成功，可以通过 Ctrl+Z 撤销")
+        
+        return success
     
     # 调试方法
     def set_debug_mode(self, enabled: bool) -> None:
@@ -312,8 +337,6 @@ class AnnotationCanvas(PlotWidget):
     
     def cleanup(self) -> None:
         """清理资源"""
-        from ..utils.logger import get_logger
-        logger = get_logger(__name__)
         logger.debug("画布开始清理资源")
         
         # 清理控制器

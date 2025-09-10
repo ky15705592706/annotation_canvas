@@ -103,14 +103,27 @@ class ShapeFactory:
             # 根据类型提取特定参数
             if shape_type == DrawType.POINT:
                 position_data = shape_data.get('position', {})
-                position = QPointF(position_data.get('x', 0), position_data.get('y', 0))
+                # 兼容元组格式 (x, y) 和字典格式 {'x': x, 'y': y}
+                if isinstance(position_data, (list, tuple)) and len(position_data) >= 2:
+                    position = QPointF(position_data[0], position_data[1])
+                else:
+                    position = QPointF(position_data.get('x', 0), position_data.get('y', 0))
                 return ShapeFactory._create_point(position=position, color=color, pen_width=pen_width)
                 
             elif shape_type == DrawType.RECTANGLE:
                 start_data = shape_data.get('start_point', {})
                 end_data = shape_data.get('end_point', {})
-                start_point = QPointF(start_data.get('x', 0), start_data.get('y', 0))
-                end_point = QPointF(end_data.get('x', 0), end_data.get('y', 0))
+                # 兼容元组格式 (x, y) 和字典格式 {'x': x, 'y': y}
+                if isinstance(start_data, (list, tuple)) and len(start_data) >= 2:
+                    start_point = QPointF(start_data[0], start_data[1])
+                else:
+                    start_point = QPointF(start_data.get('x', 0), start_data.get('y', 0))
+                
+                if isinstance(end_data, (list, tuple)) and len(end_data) >= 2:
+                    end_point = QPointF(end_data[0], end_data[1])
+                else:
+                    end_point = QPointF(end_data.get('x', 0), end_data.get('y', 0))
+                
                 return ShapeFactory._create_rectangle(
                     start_point=start_point, end_point=end_point, 
                     color=color, pen_width=pen_width
@@ -119,8 +132,17 @@ class ShapeFactory:
             elif shape_type == DrawType.ELLIPSE:
                 start_data = shape_data.get('start_point', {})
                 end_data = shape_data.get('end_point', {})
-                start_point = QPointF(start_data.get('x', 0), start_data.get('y', 0))
-                end_point = QPointF(end_data.get('x', 0), end_data.get('y', 0))
+                # 兼容元组格式 (x, y) 和字典格式 {'x': x, 'y': y}
+                if isinstance(start_data, (list, tuple)) and len(start_data) >= 2:
+                    start_point = QPointF(start_data[0], start_data[1])
+                else:
+                    start_point = QPointF(start_data.get('x', 0), start_data.get('y', 0))
+                
+                if isinstance(end_data, (list, tuple)) and len(end_data) >= 2:
+                    end_point = QPointF(end_data[0], end_data[1])
+                else:
+                    end_point = QPointF(end_data.get('x', 0), end_data.get('y', 0))
+                
                 return ShapeFactory._create_ellipse(
                     start_point=start_point, end_point=end_point, 
                     color=color, pen_width=pen_width

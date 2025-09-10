@@ -9,6 +9,7 @@ from .create_operation import CreateOperation
 from .delete_operation import DeleteOperation
 from .move_operation import MoveOperation
 from .scale_operation import ScaleOperation
+from .import_operation import ImportOperation
 
 __all__ = [
     'BaseOperation',
@@ -20,5 +21,6 @@ __all__ = [
     'CreateOperation',
     'DeleteOperation',
     'MoveOperation',
-    'ScaleOperation'
+    'ScaleOperation',
+    'ImportOperation'
 ]

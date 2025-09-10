@@ -263,8 +263,31 @@ class AnnotationController:
     
     # 数据管理方法
     def add_shape(self, shape) -> None:
-        """添加图形"""
+        """添加图形（不支持撤销）"""
         self.data_manager.add_shape(shape)
+    
+    def add_shape_with_undo(self, shape) -> bool:
+        """添加图形（支持撤销）"""
+        try:
+            # 创建创建操作
+            create_operation = CreateOperation(shape, self.data_manager)
+            
+            # 通过操作管理器执行，这样可以撤销
+            success = self.operation_manager.execute_operation(create_operation)
+            
+            if success:
+                # 触发显示更新
+                self.event_bus.publish(Event(EventType.DISPLAY_UPDATE_REQUESTED))
+                logger.info(f"添加图形成功: {shape.shape_type.name}（支持撤销）")
+            else:
+                logger.error("添加图形操作执行失败")
+            
+            return success
+            
+        except Exception as e:
+            error_msg = f"添加图形失败: {e}"
+            logger.error(error_msg)
+            return False
     
     def remove_shape(self, shape) -> bool:
         """移除图形"""
@@ -295,8 +318,19 @@ class AnnotationController:
         return self.data_manager.export_data()
     
     def import_data(self, data: dict) -> bool:
-        """导入数据"""
+        """导入数据（不支持撤销）"""
         return self.data_manager.import_data(data)
+    
+    def import_data_with_undo(self, data: dict) -> bool:
+        """导入数据（支持撤销）"""
+        success = self.data_manager.import_data_with_undo(data, self.operation_manager)
+        
+        if success:
+            # 触发显示更新
+            self.event_bus.publish(Event(EventType.DISPLAY_UPDATE_REQUESTED))
+            logger.info("导入数据成功，可以通过 Ctrl+Z 撤销")
+        
+        return success
     
     # 渲染控制
     def update_display(self) -> None:

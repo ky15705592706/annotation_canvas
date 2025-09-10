@@ -5,6 +5,7 @@ AnnotationCanvas 演示程序
 """
 
 import sys
+import random
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
     QWidget, QPushButton, QLabel, QComboBox, QGroupBox,
@@ -120,9 +121,15 @@ class AnnotationCanvasDemo(QMainWindow):
         self.undo_btn = QPushButton("撤销 (Ctrl+Z)")
         self.redo_btn = QPushButton("重做 (Ctrl+Y)")
         
+        # 添加图形按钮
+        self.add_shape_btn = QPushButton("添加测试图形（支持撤销）")
+        self.add_shape_no_undo_btn = QPushButton("添加测试图形（不支持撤销）")
+        
         action_layout.addWidget(self.clear_btn)
         action_layout.addWidget(self.undo_btn)
         action_layout.addWidget(self.redo_btn)
+        action_layout.addWidget(self.add_shape_btn)
+        action_layout.addWidget(self.add_shape_no_undo_btn)
         
         # 缩放按钮
         zoom_group = QGroupBox("缩放")
@@ -157,6 +164,18 @@ class AnnotationCanvasDemo(QMainWindow):
         new_action.setShortcut(QKeySequence.StandardKey.New)
         new_action.triggered.connect(self._new_file)
         file_menu.addAction(new_action)
+        
+        file_menu.addSeparator()
+        
+        # 导入菜单
+        import_action = QAction("导入数据(&I)", self)
+        import_action.triggered.connect(self._import_data)
+        file_menu.addAction(import_action)
+        
+        # 导出菜单
+        export_action = QAction("导出数据(&E)", self)
+        export_action.triggered.connect(self._export_data)
+        file_menu.addAction(export_action)
         
         file_menu.addSeparator()
         
@@ -225,6 +244,8 @@ class AnnotationCanvasDemo(QMainWindow):
         self.clear_btn.clicked.connect(self._clear_canvas)
         self.undo_btn.clicked.connect(self._undo)
         self.redo_btn.clicked.connect(self._redo)
+        self.add_shape_btn.clicked.connect(self._add_test_shape_with_undo)
+        self.add_shape_no_undo_btn.clicked.connect(self._add_test_shape_no_undo)
         self.zoom_in_btn.clicked.connect(self._zoom_in)
         self.zoom_out_btn.clicked.connect(self._zoom_out)
         self.zoom_fit_btn.clicked.connect(self._zoom_fit)
@@ -317,6 +338,123 @@ class AnnotationCanvasDemo(QMainWindow):
             </ul>
             """
         )
+    
+    def _add_test_shape_with_undo(self):
+        """添加测试图形（支持撤销）"""
+        from annotation_canvas.models import PointShape, RectangleShape
+        from PySide6.QtCore import QPointF
+        
+        # 创建随机位置的测试图形
+        x = random.randint(-100, 100)
+        y = random.randint(-100, 100)
+        
+        if self.canvas.get_current_tool() == DrawType.POINT:
+            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
+        elif self.canvas.get_current_tool() == DrawType.RECTANGLE:
+            shape = RectangleShape(
+                QPointF(x, y), 
+                QPointF(x + 30, y + 20), 
+                self.canvas.get_current_color(), 
+                self.canvas.get_current_width()
+            )
+        else:
+            # 默认创建点
+            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
+        
+        # 使用支持撤销的添加方法
+        success = self.canvas.add_shape_with_undo(shape)
+        
+        if success:
+            self.status_bar.showMessage(f"已添加 {shape.shape_type.name} 图形（支持撤销）")
+        else:
+            self.status_bar.showMessage("添加图形失败")
+    
+    def _add_test_shape_no_undo(self):
+        """添加测试图形（不支持撤销）"""
+        from annotation_canvas.models import PointShape, RectangleShape
+        from PySide6.QtCore import QPointF
+        
+        # 创建随机位置的测试图形
+        x = random.randint(-100, 100)
+        y = random.randint(-100, 100)
+        
+        if self.canvas.get_current_tool() == DrawType.POINT:
+            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
+        elif self.canvas.get_current_tool() == DrawType.RECTANGLE:
+            shape = RectangleShape(
+                QPointF(x, y), 
+                QPointF(x + 30, y + 20), 
+                self.canvas.get_current_color(), 
+                self.canvas.get_current_width()
+            )
+        else:
+            # 默认创建点
+            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
+        
+        # 使用不支持撤销的添加方法
+        self.canvas.add_shape(shape)
+        self.status_bar.showMessage(f"已添加 {shape.shape_type.name} 图形（不支持撤销）")
+    
+    def _import_data(self):
+        """导入数据"""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        import json
+        
+        # 选择文件
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "导入数据", "", "JSON文件 (*.json);;所有文件 (*)"
+        )
+        
+        if file_path:
+            try:
+                # 读取文件
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # 使用支持撤销的导入方法
+                success = self.canvas.import_data_with_undo(data)
+                
+                if success:
+                    shape_count = len(data.get('shapes', []))
+                    QMessageBox.information(
+                        self, "导入成功", 
+                        f"成功导入 {shape_count} 个图形\n可以通过 Ctrl+Z 撤销导入操作"
+                    )
+                    self.status_bar.showMessage(f"已导入 {shape_count} 个图形")
+                else:
+                    QMessageBox.warning(self, "导入失败", "导入数据失败")
+                    
+            except Exception as e:
+                QMessageBox.critical(self, "导入错误", f"导入文件时发生错误：\n{str(e)}")
+    
+    def _export_data(self):
+        """导出数据"""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        import json
+        
+        # 选择文件
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "导出数据", "annotation_data.json", "JSON文件 (*.json);;所有文件 (*)"
+        )
+        
+        if file_path:
+            try:
+                # 导出数据
+                data = self.canvas.export_data()
+                
+                # 保存文件
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                shape_count = len(data.get('shapes', []))
+                QMessageBox.information(
+                    self, "导出成功", 
+                    f"成功导出 {shape_count} 个图形到文件：\n{file_path}"
+                )
+                self.status_bar.showMessage(f"已导出 {shape_count} 个图形")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "导出错误", f"导出文件时发生错误：\n{str(e)}")
 
 
 def main():

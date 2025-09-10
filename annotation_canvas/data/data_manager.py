@@ -9,6 +9,7 @@ from ..events import EventBus, Event, EventType
 from ..core import DrawType, DrawColor, PenWidth
 from ..models import BaseShape
 from ..factories import ShapeFactory
+from ..operations import ImportOperation
 from ..utils.constants import InteractionConstants
 from ..utils.logger import get_logger
 from ..utils.exceptions import DataManagerError, ShapeCreationError
@@ -287,7 +288,7 @@ class DataManager:
     
     def import_data(self, data: Dict[str, Any]) -> bool:
         """
-        导入数据
+        导入数据（不支持撤销）
         
         Args:
             data: 要导入的数据字典
@@ -324,6 +325,36 @@ class DataManager:
             error_msg = f"导入数据失败: {e}"
             logger.error(error_msg)
             raise DataManagerError(error_msg, operation="import_data") from e
+    
+    def import_data_with_undo(self, data: Dict[str, Any], operation_manager) -> bool:
+        """
+        导入数据（支持撤销）
+        
+        Args:
+            data: 要导入的数据字典
+            operation_manager: 操作管理器
+            
+        Returns:
+            是否成功导入
+        """
+        try:
+            # 创建导入操作
+            import_operation = ImportOperation(data, self, operation_manager)
+            
+            # 通过操作管理器执行，这样可以撤销
+            success = operation_manager.execute_operation(import_operation)
+            
+            if success:
+                logger.info(f"成功导入 {import_operation.get_imported_count()} 个图形（支持撤销）")
+            else:
+                logger.error("导入操作执行失败")
+            
+            return success
+            
+        except Exception as e:
+            error_msg = f"导入数据失败: {e}"
+            logger.error(error_msg)
+            raise DataManagerError(error_msg, operation="import_data_with_undo") from e
     
     def _create_shape_from_dict(self, shape_data: Dict[str, Any]) -> Optional[BaseShape]:
         """从字典数据创建图形"""
