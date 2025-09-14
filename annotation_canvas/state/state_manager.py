@@ -524,6 +524,16 @@ class StateManager(EventHandlerBase):
                         already_executed=True  # 标记为已执行，因为图形已经在实时预览中移动
                     )
                     self.operation_manager.execute_operation(move_operation)
+                    
+                    # 发布移动事件
+                    self.event_bus.publish(Event(
+                        EventType.SHAPE_UPDATED,
+                        {
+                            'shape': self.drag_start_shape,
+                            'update_type': 'move'
+                        }
+                    ))
+                    
                     # 触发显示更新
                     self.event_bus.publish(Event(EventType.DISPLAY_UPDATE_REQUESTED))
         
@@ -559,6 +569,16 @@ class StateManager(EventHandlerBase):
                         already_executed=True  # 标记为已执行，因为图形已经在实时预览中缩放
                     )
                     self.operation_manager.execute_operation(scale_operation)
+                    
+                    # 发布修改事件
+                    self.event_bus.publish(Event(
+                        EventType.SHAPE_UPDATED,
+                        {
+                            'shape': self.drag_start_shape,
+                            'update_type': 'modify'
+                        }
+                    ))
+                    
                     # 触发显示更新
                     self.event_bus.publish(Event(EventType.DISPLAY_UPDATE_REQUESTED))
         
@@ -572,6 +592,7 @@ class StateManager(EventHandlerBase):
     def _get_hit_target(self, pos: QPointF, pixel_size: float = InteractionConstants.DEFAULT_PIXEL_SIZE) -> Dict[str, Any]:
         """获取命中目标"""
         return self.data_manager.get_hit_target(pos, pixel_size)
+    
     
     
     def _apply_snap_to_grid(self, pos: QPointF) -> QPointF:

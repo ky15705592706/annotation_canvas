@@ -27,6 +27,10 @@ class AnnotationCanvas(PlotWidget):
     # 信号定义
     shape_selected = Signal(BaseShape)
     shape_deselected = Signal()
+    shape_added = Signal(BaseShape)  # 图形添加信号
+    shape_moved = Signal(BaseShape)  # 图形移动信号 (修改后的图形)
+    shape_modified = Signal(BaseShape)  # 图形修改信号 (修改后的图形)
+    shape_deleted = Signal(BaseShape)  # 图形删除信号 (被删除的图形)
     
     def __init__(self):
         super().__init__()

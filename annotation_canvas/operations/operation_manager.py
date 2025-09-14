@@ -10,9 +10,10 @@ import time
 class OperationManager:
     """操作管理器"""
     
-    def __init__(self):
+    def __init__(self, event_bus=None):
         self.operation_history: List[BaseOperation] = []
         self.current_index = -1
+        self.event_bus = event_bus
     
     def execute_operation(self, operation: BaseOperation) -> bool:
         """执行操作"""
@@ -38,6 +39,9 @@ class OperationManager:
         
         # 撤销操作
         if current_operation.undo():
+            # 发送撤销信号
+            self._emit_undo_signals(current_operation)
+            
             # 更新当前索引
             self.current_index -= 1
             return True
@@ -54,6 +58,9 @@ class OperationManager:
         
         # 重做操作
         if next_operation.redo():
+            # 发送重做信号
+            self._emit_redo_signals(next_operation)
+            
             # 更新当前索引
             self.current_index += 1
             return True
@@ -80,6 +87,60 @@ class OperationManager:
         if self.can_redo():
             return self.operation_history[self.current_index + 1].get_description()
         return None
+    
+    def _emit_undo_signals(self, operation: BaseOperation) -> None:
+        """发送撤销信号"""
+        if not self.event_bus:
+            return
+        
+        from ..events import Event, EventType
+        
+        # 获取图形列表
+        shapes = []
+        if hasattr(operation, 'shapes') and operation.shapes:
+            shapes = operation.shapes
+        elif hasattr(operation, 'shape') and operation.shape:
+            shapes = [operation.shape]
+        
+        if shapes:
+            for shape in shapes:
+                if operation.__class__.__name__ == 'DeleteOperation':
+                    # 撤销删除 = 重新添加
+                    self.event_bus.publish(Event(EventType.SHAPE_ADDED, {'shape': shape}))
+                elif operation.__class__.__name__ in ['MoveOperation', 'ScaleOperation']:
+                    # 撤销移动/修改 = 反向移动/修改
+                    update_type = 'move' if operation.__class__.__name__ == 'MoveOperation' else 'modify'
+                    self.event_bus.publish(Event(EventType.SHAPE_UPDATED, {
+                        'shape': shape, 
+                        'update_type': update_type
+                    }))
+    
+    def _emit_redo_signals(self, operation: BaseOperation) -> None:
+        """发送重做信号"""
+        if not self.event_bus:
+            return
+        
+        from ..events import Event, EventType
+        
+        # 获取图形列表
+        shapes = []
+        if hasattr(operation, 'shapes') and operation.shapes:
+            shapes = operation.shapes
+        elif hasattr(operation, 'shape') and operation.shape:
+            shapes = [operation.shape]
+        
+        if shapes:
+            for shape in shapes:
+                if operation.__class__.__name__ == 'DeleteOperation':
+                    # 重做删除 = 删除
+                    self.event_bus.publish(Event(EventType.SHAPE_REMOVED, {'shape': shape}))
+                elif operation.__class__.__name__ in ['MoveOperation', 'ScaleOperation']:
+                    # 重做移动/修改 = 移动/修改
+                    update_type = 'move' if operation.__class__.__name__ == 'MoveOperation' else 'modify'
+                    self.event_bus.publish(Event(EventType.SHAPE_UPDATED, {
+                        'shape': shape, 
+                        'update_type': update_type
+                    }))
     
     def clear_history(self):
         """清空历史记录"""

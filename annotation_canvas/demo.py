@@ -249,6 +249,12 @@ class AnnotationCanvasDemo(QMainWindow):
         self.zoom_in_btn.clicked.connect(self._zoom_in)
         self.zoom_out_btn.clicked.connect(self._zoom_out)
         self.zoom_fit_btn.clicked.connect(self._zoom_fit)
+        
+        # 画布信号
+        self.canvas.shape_added.connect(self._on_shape_added)
+        self.canvas.shape_moved.connect(self._on_shape_moved)
+        self.canvas.shape_modified.connect(self._on_shape_modified)
+        self.canvas.shape_deleted.connect(self._on_shape_deleted)
     
     def _on_tool_changed(self, index):
         """工具改变"""
@@ -273,6 +279,73 @@ class AnnotationCanvasDemo(QMainWindow):
         if 0 <= index < len(widths):
             self.canvas.set_current_width(widths[index])
             self.status_bar.showMessage(f"当前线宽: {widths[index].name}")
+    
+    def _on_shape_added(self, shape):
+        """处理图形添加信号"""
+        # 获取图形信息
+        shape_info = {
+            'type': shape.shape_type.name,
+            'color': shape.color.name,
+            'pen_width': shape.pen_width.name,
+            'position': None,
+            'bounds': None
+        }
+        
+        # 根据图形类型获取位置信息
+        if hasattr(shape, 'get_position'):
+            pos = shape.get_position()
+            shape_info['position'] = (pos.x(), pos.y())
+        elif hasattr(shape, 'get_center'):
+            center = shape.get_center()
+            shape_info['position'] = (center.x(), center.y())
+        
+        # 获取边界信息
+        bounds = shape.get_bounds()
+        shape_info['bounds'] = {
+            'x': bounds.x(),
+            'y': bounds.y(),
+            'width': bounds.width(),
+            'height': bounds.height()
+        }
+        
+        # 更新状态栏显示图形信息
+        self.status_bar.showMessage(
+            f"已添加 {shape_info['type']} 图形 - "
+            f"颜色: {shape_info['color']}, "
+            f"线宽: {shape_info['pen_width']}"
+        )
+        
+        # 打印图形信息到控制台（实际使用时可以替换为其他处理逻辑）
+        print(f"图形添加信号触发: {shape_info}")
+    
+    def _on_shape_moved(self, shape):
+        """处理图形移动信号"""
+        self.status_bar.showMessage(f"图形已移动 - {shape.shape_type.name}")
+        
+        print(f"图形移动信号触发:")
+        print(f"  图形类型: {shape.shape_type.name}")
+        if hasattr(shape, 'get_position'):
+            pos = shape.get_position()
+            print(f"  当前位置: ({pos.x():.1f}, {pos.y():.1f})")
+    
+    def _on_shape_modified(self, shape):
+        """处理图形修改信号"""
+        self.status_bar.showMessage(f"图形已修改 - {shape.shape_type.name}")
+        
+        print(f"图形修改信号触发:")
+        print(f"  图形类型: {shape.shape_type.name}")
+        bounds = shape.get_bounds()
+        print(f"  当前边界: x:{bounds.x():.1f}, y:{bounds.y():.1f}, w:{bounds.width():.1f}, h:{bounds.height():.1f}")
+    
+    def _on_shape_deleted(self, shape):
+        """处理图形删除信号"""
+        self.status_bar.showMessage(f"图形已删除 - {shape.shape_type.name}")
+        
+        print(f"图形删除信号触发:")
+        print(f"  图形类型: {shape.shape_type.name}")
+        if hasattr(shape, 'get_position'):
+            pos = shape.get_position()
+            print(f"  删除前位置: ({pos.x():.1f}, {pos.y():.1f})")
     
     def _new_file(self):
         """新建文件"""

@@ -35,7 +35,7 @@ class AnnotationController:
         self.event_bus = EventBus()
         
         # 创建操作管理器
-        self.operation_manager = OperationManager()
+        self.operation_manager = OperationManager(self.event_bus)
         
         # 创建各个模块
         self.data_manager = DataManager(self.event_bus)
@@ -54,6 +54,9 @@ class AnnotationController:
         self.event_bus.subscribe(EventType.STATE_CHANGED, self._on_state_changed)
         self.event_bus.subscribe(EventType.MODE_CHANGED, self._on_mode_changed)
         self.event_bus.subscribe(EventType.CONFIRM_CANCEL_POLYGON, self._on_confirm_cancel_polygon)
+        self.event_bus.subscribe(EventType.SHAPE_ADDED, self._on_shape_added)
+        self.event_bus.subscribe(EventType.SHAPE_UPDATED, self._on_shape_updated)
+        self.event_bus.subscribe(EventType.SHAPE_REMOVED, self._on_shape_deleted)
     
     def _on_state_changed(self, event: Event) -> None:
         """处理状态变化事件"""
@@ -349,6 +352,36 @@ class AnnotationController:
     def get_input_state(self) -> dict:
         """获取输入状态"""
         return self.input_handler.get_current_state()
+    
+    def _on_shape_added(self, event: Event) -> None:
+        """处理图形添加事件"""
+        shape = event.data.get('shape')
+        if shape and hasattr(self.canvas, 'shape_added'):
+            # 发射图形添加信号
+            self.canvas.shape_added.emit(shape)
+    
+    def _on_shape_updated(self, event: Event) -> None:
+        """处理图形更新事件"""
+        shape = event.data.get('shape')
+        if not shape:
+            return
+        
+        # 检查是否是移动或修改操作
+        update_type = event.data.get('update_type', 'unknown')
+        
+        if update_type == 'move' and hasattr(self.canvas, 'shape_moved'):
+            # 处理移动事件
+            self.canvas.shape_moved.emit(shape)
+        elif update_type == 'modify' and hasattr(self.canvas, 'shape_modified'):
+            # 处理修改事件
+            self.canvas.shape_modified.emit(shape)
+    
+    def _on_shape_deleted(self, event: Event) -> None:
+        """处理图形删除事件"""
+        shape = event.data.get('shape')
+        if shape and hasattr(self.canvas, 'shape_deleted'):
+            # 发射图形删除信号
+            self.canvas.shape_deleted.emit(shape)
     
     def _on_confirm_cancel_polygon(self, event: Event) -> None:
         """处理确认取消多边形事件"""

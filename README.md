@@ -139,6 +139,58 @@ data = canvas.export_data()
 success = canvas.import_data(data)
 ```
 
+### 信号监听
+
+```python
+from PySide6.QtCore import QObject
+
+class ShapeMonitor(QObject):
+    def __init__(self, canvas):
+        super().__init__()
+        # 连接图形添加信号
+        canvas.shape_added.connect(self.on_shape_added)
+        canvas.shape_selected.connect(self.on_shape_selected)
+        canvas.shape_deselected.connect(self.on_shape_deselected)
+    
+    def on_shape_added(self, shape):
+        """处理图形添加信号"""
+        print(f"添加了图形: {shape.shape_type.name}")
+        print(f"位置: {shape.get_position()}")
+        print(f"颜色: {shape.color.name}")
+    
+    def on_shape_moved(self, shape):
+        """处理图形移动信号"""
+        print(f"移动了图形: {shape.shape_type.name}")
+        if hasattr(shape, 'get_position'):
+            pos = shape.get_position()
+            print(f"当前位置: ({pos.x():.1f}, {pos.y():.1f})")
+    
+    def on_shape_modified(self, shape):
+        """处理图形修改信号"""
+        print(f"修改了图形: {shape.shape_type.name}")
+        bounds = shape.get_bounds()
+        print(f"当前边界: x:{bounds.x():.1f}, y:{bounds.y():.1f}, w:{bounds.width():.1f}, h:{bounds.height():.1f}")
+    
+    def on_shape_deleted(self, shape):
+        """处理图形删除信号"""
+        print(f"删除了图形: {shape.shape_type.name}")
+        if hasattr(shape, 'get_position'):
+            pos = shape.get_position()
+            print(f"删除前位置: ({pos.x():.1f}, {pos.y():.1f})")
+    
+    def on_shape_selected(self, shape):
+        """处理图形选择信号"""
+        print(f"选择了图形: {shape.shape_type.name}")
+    
+    def on_shape_deselected(self):
+        """处理图形取消选择信号"""
+        print("取消选择图形")
+
+# 使用示例
+canvas = AnnotationCanvas()
+monitor = ShapeMonitor(canvas)
+```
+
 ## 架构设计
 
 ### 事件驱动架构
