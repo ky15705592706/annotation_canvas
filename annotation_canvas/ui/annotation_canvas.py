@@ -43,7 +43,6 @@ class AnnotationCanvas(PlotWidget):
         
         # 设置用户界面
         self._setup_ui()
-        self._setup_shortcuts()
         
         # 设置焦点策略
         self.setFocusPolicy(Qt.StrongFocus)
@@ -95,29 +94,6 @@ class AnnotationCanvas(PlotWidget):
         # 设置样式
         self.status_bar.setStyleSheet("QStatusBar { background-color: #f0f0f0; border-top: 1px solid #c0c0c0; }")
     
-    def _setup_shortcuts(self):
-        """设置快捷键"""
-        # 撤销快捷键
-        self.undo_action = QAction("撤销", self)
-        self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
-        self.undo_action.triggered.connect(self._handle_undo)
-        self.addAction(self.undo_action)
-        
-        # 重做快捷键
-        self.redo_action = QAction("重做", self)
-        self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
-        self.redo_action.triggered.connect(self._handle_redo)
-        self.addAction(self.redo_action)
-    
-    def _handle_undo(self):
-        """处理撤销操作"""
-        if hasattr(self, 'controller') and hasattr(self.controller, '_undo'):
-            self.controller._undo()
-    
-    def _handle_redo(self):
-        """处理重做操作"""
-        if hasattr(self, 'controller') and hasattr(self.controller, '_redo'):
-            self.controller._redo()
     
     def _update_status_bar(self):
         """更新状态栏"""
