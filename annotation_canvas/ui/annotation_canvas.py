@@ -45,7 +45,7 @@ class AnnotationCanvas(PlotWidget):
         self._setup_ui()
         
         # 设置焦点策略
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         
         # 初始化状态栏
         self._create_status_bar()
