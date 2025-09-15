@@ -100,6 +100,9 @@ class ShapeFactory:
             color = DrawColor(shape_data.get('color', DrawColor.RED.value))
             pen_width = PenWidth(shape_data.get('pen_width', PenWidth.MEDIUM.value))
             
+            # 创建图形对象
+            shape = None
+            
             # 根据类型提取特定参数
             if shape_type == DrawType.POINT:
                 position_data = shape_data.get('position', {})
@@ -108,7 +111,7 @@ class ShapeFactory:
                     position = QPointF(position_data[0], position_data[1])
                 else:
                     position = QPointF(position_data.get('x', 0), position_data.get('y', 0))
-                return ShapeFactory._create_point(position=position, color=color, pen_width=pen_width)
+                shape = ShapeFactory._create_point(position=position, color=color, pen_width=pen_width)
                 
             elif shape_type == DrawType.RECTANGLE:
                 start_data = shape_data.get('start_point', {})
@@ -124,7 +127,7 @@ class ShapeFactory:
                 else:
                     end_point = QPointF(end_data.get('x', 0), end_data.get('y', 0))
                 
-                return ShapeFactory._create_rectangle(
+                shape = ShapeFactory._create_rectangle(
                     start_point=start_point, end_point=end_point, 
                     color=color, pen_width=pen_width
                 )
@@ -143,7 +146,7 @@ class ShapeFactory:
                 else:
                     end_point = QPointF(end_data.get('x', 0), end_data.get('y', 0))
                 
-                return ShapeFactory._create_ellipse(
+                shape = ShapeFactory._create_ellipse(
                     start_point=start_point, end_point=end_point, 
                     color=color, pen_width=pen_width
                 )
@@ -151,11 +154,20 @@ class ShapeFactory:
             elif shape_type == DrawType.POLYGON:
                 vertices_data = shape_data.get('vertices', [])
                 vertices = [QPointF(v.get('x', 0), v.get('y', 0)) for v in vertices_data]
-                return ShapeFactory._create_polygon(vertices=vertices, color=color, pen_width=pen_width)
+                shape = ShapeFactory._create_polygon(vertices=vertices, color=color, pen_width=pen_width)
             
             else:
                 logger.warning(f"不支持的图形类型: {shape_type}")
                 return None
+            
+            # 设置metadata（如果存在）
+            if shape and 'metadata' in shape_data:
+                metadata = shape_data['metadata']
+                if isinstance(metadata, dict):
+                    shape.update_metadata(metadata)
+                    logger.debug(f"为图形设置metadata: {metadata}")
+            
+            return shape
                 
         except Exception as e:
             logger.error(f"从字典创建图形失败: {e}")
