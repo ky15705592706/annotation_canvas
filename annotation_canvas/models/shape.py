@@ -21,6 +21,7 @@ class BaseShape(ABC):
         self.hovered = False
         self.control_points: List[ControlPoint] = []
         self.graphics_item = None  # PyQtGraph图形项引用
+        self.metadata: Dict[str, Any] = {}  # 额外数据存储
         
         # 初始化控制点
         self._initialize_control_points()
@@ -107,6 +108,22 @@ class BaseShape(ABC):
         """检查是否悬停"""
         return self.hovered
     
+    def set_metadata(self, key: str, value: Any) -> None:
+        """设置元数据"""
+        self.metadata[key] = value
+    
+    def get_metadata(self, key: str, default: Any = None) -> Any:
+        """获取元数据"""
+        return self.metadata.get(key, default)
+    
+    def update_metadata(self, metadata: Dict[str, Any]) -> None:
+        """批量更新元数据"""
+        self.metadata.update(metadata)
+    
+    def clear_metadata(self) -> None:
+        """清空元数据"""
+        self.metadata.clear()
+    
     def get_color_rgb(self) -> Tuple[int, int, int]:
         """获取颜色RGB值"""
         color_map = {
@@ -140,6 +157,7 @@ class BaseShape(ABC):
             'pen_width': self.pen_width.value,
             'visible': self.visible,
             'selected': self.selected,
+            'metadata': self.metadata,
         }
     
     @classmethod

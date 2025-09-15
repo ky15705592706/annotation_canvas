@@ -149,6 +149,9 @@ class ShapeMonitor(QObject):
         super().__init__()
         # 连接图形添加信号
         canvas.shape_added.connect(self.on_shape_added)
+        canvas.shape_moved.connect(self.on_shape_moved)
+        canvas.shape_modified.connect(self.on_shape_modified)
+        canvas.shape_deleted.connect(self.on_shape_deleted)
         canvas.shape_selected.connect(self.on_shape_selected)
         canvas.shape_deselected.connect(self.on_shape_deselected)
     
@@ -190,6 +193,51 @@ class ShapeMonitor(QObject):
 canvas = AnnotationCanvas()
 monitor = ShapeMonitor(canvas)
 ```
+
+### 传递额外数据（Metadata）
+
+每个图形对象都支持存储额外的数据，通过 `metadata` 属性实现：
+
+```python
+from annotation_canvas.models.rectangle import RectangleShape
+from PySide6.QtCore import QPointF
+from datetime import datetime
+
+# 创建图形
+rect = RectangleShape(
+    start_point=QPointF(10, 10),
+    end_point=QPointF(100, 100),
+    color=DrawColor.RED
+)
+
+# 设置单个metadata
+rect.set_metadata("user_id", "user_123")
+rect.set_metadata("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+# 批量设置metadata
+rect.update_metadata({
+    "category": "重要标注",
+    "priority": "high",
+    "description": "这是一个重要的矩形标注"
+})
+
+# 获取metadata
+user_id = rect.get_metadata("user_id")
+timestamp = rect.get_metadata("timestamp", "未知时间")  # 带默认值
+
+# 在信号处理函数中访问metadata
+def on_shape_added(self, shape):
+    if shape.metadata:
+        print("额外信息:")
+        for key, value in shape.metadata.items():
+            print(f"  {key}: {value}")
+```
+
+**Metadata特点：**
+- 自动包含在序列化/反序列化中
+- 支持任意键值对数据
+- 在信号中自动传递
+- 支持设置、获取、批量更新、清空操作
 
 ## 架构设计
 
