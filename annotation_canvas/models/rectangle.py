@@ -14,10 +14,10 @@ class RectangleShape(BaseShape):
     """矩形图形类"""
     
     def __init__(self, start_point: QPointF, end_point: QPointF, 
-                 color: DrawColor = DrawColor.RED, pen_width: PenWidth = PenWidth.MEDIUM):
+                 color: DrawColor = DrawColor.RED, pen_width: PenWidth = PenWidth.MEDIUM, z_order: int = None):
         self.start_point = start_point
         self.end_point = end_point
-        super().__init__(DrawType.RECTANGLE, color, pen_width)
+        super().__init__(DrawType.RECTANGLE, color, pen_width, z_order)
     
     def _initialize_control_points(self):
         """初始化控制点 - 矩形有两个对角控制点"""
@@ -200,8 +200,9 @@ class RectangleShape(BaseShape):
         end_point = QPointF(data['end_point'][0], data['end_point'][1])
         color = DrawColor(data.get('color', DrawColor.RED.value))
         pen_width = PenWidth(data.get('pen_width', PenWidth.MEDIUM.value))
+        z_order = data.get('z_order', None)
         
-        return cls(start_point, end_point, color, pen_width)
+        return cls(start_point, end_point, color, pen_width, z_order)
     
     def __str__(self) -> str:
         return f"RectangleShape(start=({self.start_point.x():.1f}, {self.start_point.y():.1f}), " \

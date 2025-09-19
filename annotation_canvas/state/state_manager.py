@@ -621,7 +621,6 @@ class StateManager(EventHandlerBase):
         """清理资源"""
         from ..utils.logger import get_logger
         logger = get_logger(__name__)
-        logger.debug("状态管理器开始清理资源")
         
         # 取消所有事件订阅
         if hasattr(self, '_event_handlers') and self._event_handlers:
@@ -633,4 +632,3 @@ class StateManager(EventHandlerBase):
         self.current_state = OperationState.IDLE
         self.temp_shape = None
         
-        logger.debug("状态管理器资源清理完成")

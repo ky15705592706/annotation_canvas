@@ -7,7 +7,7 @@ from PySide6.QtCore import QPointF
 from .preview_operation import PreviewOperation
 from ..models.shape import BaseShape
 from ..models.control_point import ControlPoint
-from ..utils.coordinate_utils import CoordinateUtils
+from ..utils.coordinate_utils_functions import qpointf_to_dict, dict_to_qpointf
 
 class ScaleOperation(PreviewOperation):
     """缩放操作类"""
@@ -44,8 +44,8 @@ class ScaleOperation(PreviewOperation):
         base_dict.update({
             'shape': self.shape.to_dict(),
             'control_point': self.control_point.to_dict(),
-            'old_position': CoordinateUtils.qpointf_to_dict(self.old_position),
-            'new_position': CoordinateUtils.qpointf_to_dict(self.new_position),
+            'old_position': qpointf_to_dict(self.old_position),
+            'new_position': qpointf_to_dict(self.new_position),
             'executed': self.executed
         })
         return base_dict
@@ -64,8 +64,8 @@ class ScaleOperation(PreviewOperation):
         
         old_pos_data = data.get('old_position', {'x': 0, 'y': 0})
         new_pos_data = data.get('new_position', {'x': 0, 'y': 0})
-        old_position = CoordinateUtils.dict_to_qpointf(old_pos_data)
-        new_position = CoordinateUtils.dict_to_qpointf(new_pos_data)
+        old_position = dict_to_qpointf(old_pos_data)
+        new_position = dict_to_qpointf(new_pos_data)
         
         operation = cls(shape, control_point, old_position, new_position, data.get('description', ''))
         operation.executed = data.get('executed', False)

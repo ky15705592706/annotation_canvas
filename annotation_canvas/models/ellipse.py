@@ -14,10 +14,10 @@ class EllipseShape(BaseShape):
     """椭圆图形类 - 矩形内接椭圆"""
     
     def __init__(self, start_point: QPointF, end_point: QPointF, 
-                 color: DrawColor = DrawColor.RED, pen_width: PenWidth = PenWidth.MEDIUM):
+                 color: DrawColor = DrawColor.RED, pen_width: PenWidth = PenWidth.MEDIUM, z_order: int = None):
         self.start_point = start_point
         self.end_point = end_point
-        super().__init__(DrawType.ELLIPSE, color, pen_width)
+        super().__init__(DrawType.ELLIPSE, color, pen_width, z_order)
     
     def _initialize_control_points(self):
         """初始化控制点 - 椭圆有两个对角控制点"""
@@ -210,8 +210,9 @@ class EllipseShape(BaseShape):
         end_point = QPointF(data['end_point'][0], data['end_point'][1])
         color = DrawColor(data.get('color', DrawColor.RED.value))
         pen_width = PenWidth(data.get('pen_width', PenWidth.MEDIUM.value))
+        z_order = data.get('z_order', None)
         
-        return cls(start_point, end_point, color, pen_width)
+        return cls(start_point, end_point, color, pen_width, z_order)
     
     def __str__(self) -> str:
         return f"EllipseShape(start=({self.start_point.x():.1f}, {self.start_point.y():.1f}), " \

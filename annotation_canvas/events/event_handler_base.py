@@ -41,7 +41,6 @@ class EventHandlerBase(ABC):
         for event_type, handler in self._event_handlers.items():
             self.event_bus.subscribe(event_type, handler)
             self._subscribed_events.append(event_type)
-            logger.debug(f"订阅事件: {event_type.name} -> {handler.__name__}")
     
     def _unsubscribe_events(self) -> None:
         """取消订阅事件"""
@@ -49,7 +48,6 @@ class EventHandlerBase(ABC):
             if event_type in self._event_handlers:
                 self.event_bus.unsubscribe(event_type, self._event_handlers[event_type])
         self._subscribed_events.clear()
-        logger.debug("已取消所有事件订阅")
     
     def register_handler(self, event_type: EventType, handler: Callable) -> None:
         """
@@ -62,7 +60,6 @@ class EventHandlerBase(ABC):
         self._event_handlers[event_type] = handler
         self.event_bus.subscribe(event_type, handler)
         self._subscribed_events.append(event_type)
-        logger.debug(f"动态注册事件处理器: {event_type.name} -> {handler.__name__}")
     
     def unregister_handler(self, event_type: EventType) -> None:
         """
@@ -77,7 +74,6 @@ class EventHandlerBase(ABC):
             del self._event_handlers[event_type]
             if event_type in self._subscribed_events:
                 self._subscribed_events.remove(event_type)
-            logger.debug(f"取消注册事件处理器: {event_type.name}")
     
     def get_subscribed_events(self) -> List[EventType]:
         """获取已订阅的事件列表"""
@@ -91,7 +87,6 @@ class EventHandlerBase(ABC):
         """清理资源 - 取消所有事件订阅"""
         self._unsubscribe_events()
         self._event_handlers.clear()
-        logger.debug("事件处理器已清理")
     
     def __del__(self):
         """析构函数 - 确保清理资源"""

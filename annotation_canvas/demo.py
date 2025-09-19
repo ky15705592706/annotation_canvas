@@ -46,7 +46,7 @@ class AnnotationCanvasDemo(QMainWindow):
         self._connect_signals()
         
         # 设置默认工具
-        self.canvas.set_current_tool(DrawType.POINT)
+        self.canvas.set_draw_tool(DrawType.POINT)
     
     def _init_ui(self):
         """初始化用户界面"""
@@ -252,15 +252,20 @@ class AnnotationCanvasDemo(QMainWindow):
         
         # 画布信号
         self.canvas.shape_added.connect(self._on_shape_added)
-        self.canvas.shape_moved.connect(self._on_shape_moved)
-        self.canvas.shape_modified.connect(self._on_shape_modified)
-        self.canvas.shape_deleted.connect(self._on_shape_deleted)
+        self.canvas.shape_updated.connect(self._on_shape_updated)
+        self.canvas.shape_removed.connect(self._on_shape_removed)
+        self.canvas.shape_selected.connect(self._on_shape_selected)
+        self.canvas.shape_deselected.connect(self._on_shape_deselected)
+        
+        # 事件总线信号 - 处理ESC键取消多边形
+        from annotation_canvas.events import EventType
+        self.canvas.controller.event_bus.subscribe(EventType.CONFIRM_CANCEL_POLYGON, self._on_confirm_cancel_polygon)
     
     def _on_tool_changed(self, index):
         """工具改变"""
         tools = [DrawType.POINT, DrawType.RECTANGLE, DrawType.ELLIPSE, DrawType.POLYGON]
         if 0 <= index < len(tools):
-            self.canvas.set_current_tool(tools[index])
+            self.canvas.set_draw_tool(tools[index])
             self.status_bar.showMessage(f"当前工具: {tools[index].name}")
     
     def _on_color_changed(self, index):
@@ -270,14 +275,14 @@ class AnnotationCanvasDemo(QMainWindow):
             DrawColor.PURPLE, DrawColor.ORANGE, DrawColor.BLACK, DrawColor.WHITE
         ]
         if 0 <= index < len(colors):
-            self.canvas.set_current_color(colors[index])
+            self.canvas.set_draw_color(colors[index])
             self.status_bar.showMessage(f"当前颜色: {colors[index].name}")
     
     def _on_width_changed(self, index):
         """线宽改变"""
         widths = [PenWidth.THIN, PenWidth.MEDIUM, PenWidth.THICK]
         if 0 <= index < len(widths):
-            self.canvas.set_current_width(widths[index])
+            self.canvas.set_pen_width(widths[index])
             self.status_bar.showMessage(f"当前线宽: {widths[index].name}")
     
     def _on_shape_added(self, shape):
@@ -318,26 +323,11 @@ class AnnotationCanvasDemo(QMainWindow):
         # 打印图形信息到控制台（实际使用时可以替换为其他处理逻辑）
         print(f"图形添加信号触发: {shape_info}")
     
-    def _on_shape_moved(self, shape):
-        """处理图形移动信号"""
-        self.status_bar.showMessage(f"图形已移动 - {shape.shape_type.name}")
-        
-        print(f"图形移动信号触发:")
-        print(f"  图形类型: {shape.shape_type.name}")
-        if hasattr(shape, 'get_position'):
-            pos = shape.get_position()
-            print(f"  当前位置: ({pos.x():.1f}, {pos.y():.1f})")
+    def _on_shape_updated(self, shape):
+        """处理图形更新信号"""
+        self.status_bar.showMessage(f"图形已更新 - {shape.shape_type.name}")
     
-    def _on_shape_modified(self, shape):
-        """处理图形修改信号"""
-        self.status_bar.showMessage(f"图形已修改 - {shape.shape_type.name}")
-        
-        print(f"图形修改信号触发:")
-        print(f"  图形类型: {shape.shape_type.name}")
-        bounds = shape.get_bounds()
-        print(f"  当前边界: x:{bounds.x():.1f}, y:{bounds.y():.1f}, w:{bounds.width():.1f}, h:{bounds.height():.1f}")
-    
-    def _on_shape_deleted(self, shape):
+    def _on_shape_removed(self, shape):
         """处理图形删除信号"""
         self.status_bar.showMessage(f"图形已删除 - {shape.shape_type.name}")
         
@@ -346,6 +336,45 @@ class AnnotationCanvasDemo(QMainWindow):
         if hasattr(shape, 'get_position'):
             pos = shape.get_position()
             print(f"  删除前位置: ({pos.x():.1f}, {pos.y():.1f})")
+    
+    def _on_shape_selected(self, shape):
+        """处理图形选择信号"""
+        self.status_bar.showMessage(f"图形已选中 - {shape.shape_type.name}")
+        print(f"图形选择信号触发: {shape.shape_type.name}")
+    
+    def _on_shape_deselected(self, shape):
+        """处理图形取消选择信号"""
+        self.status_bar.showMessage("取消选择图形")
+        print("图形取消选择信号触发")
+    
+    def _on_confirm_cancel_polygon(self, event):
+        """处理确认取消多边形事件"""
+        vertex_count = event.data.get('vertex_count', 0)
+        
+        # 显示确认对话框
+        reply = QMessageBox.question(
+            self, "取消多边形创建", 
+            f"当前多边形已有 {vertex_count} 个顶点，确定要取消创建吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # 确认取消，发布确认事件
+            from annotation_canvas.events import Event, EventType
+            self.canvas.controller.event_bus.publish(Event(
+                EventType.CANCEL_POLYGON_CONFIRMED,
+                {'confirmed': True}
+            ))
+            self.status_bar.showMessage("已取消多边形创建")
+        else:
+            # 取消操作，继续多边形创建
+            from annotation_canvas.events import Event, EventType
+            self.canvas.controller.event_bus.publish(Event(
+                EventType.CANCEL_POLYGON_CONFIRMED,
+                {'confirmed': False}
+            ))
+            self.status_bar.showMessage("继续多边形创建")
     
     def _new_file(self):
         """新建文件"""
@@ -374,17 +403,20 @@ class AnnotationCanvasDemo(QMainWindow):
     
     def _zoom_in(self):
         """放大"""
-        self.canvas.zoom_in()
+        # 使用PyQtGraph的缩放功能
+        self.canvas.getViewBox().scaleBy(1.1)
         self.status_bar.showMessage("放大")
     
     def _zoom_out(self):
         """缩小"""
-        self.canvas.zoom_out()
+        # 使用PyQtGraph的缩放功能
+        self.canvas.getViewBox().scaleBy(0.9)
         self.status_bar.showMessage("缩小")
     
     def _zoom_fit(self):
         """适应窗口"""
-        self.canvas.auto_range()
+        # 使用PyQtGraph的自动范围功能
+        self.canvas.getViewBox().autoRange()
         self.status_bar.showMessage("适应窗口")
     
     def _show_about(self):
@@ -421,21 +453,26 @@ class AnnotationCanvasDemo(QMainWindow):
         x = random.randint(-100, 100)
         y = random.randint(-100, 100)
         
-        if self.canvas.get_current_tool() == DrawType.POINT:
-            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
-        elif self.canvas.get_current_tool() == DrawType.RECTANGLE:
+        # 获取当前设置
+        current_tool = self.canvas.controller.data_manager.get_current_tool()
+        current_color = self.canvas.controller.data_manager.get_current_color()
+        current_width = self.canvas.controller.data_manager.get_current_width()
+        
+        if current_tool == DrawType.POINT:
+            shape = PointShape(QPointF(x, y), current_color, current_width)
+        elif current_tool == DrawType.RECTANGLE:
             shape = RectangleShape(
                 QPointF(x, y), 
                 QPointF(x + 30, y + 20), 
-                self.canvas.get_current_color(), 
-                self.canvas.get_current_width()
+                current_color, 
+                current_width
             )
         else:
             # 默认创建点
-            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
+            shape = PointShape(QPointF(x, y), current_color, current_width)
         
         # 使用支持撤销的添加方法
-        success = self.canvas.add_shape_with_undo(shape)
+        success = self.canvas.add_shape(shape)
         
         if success:
             self.status_bar.showMessage(f"已添加 {shape.shape_type.name} 图形（支持撤销）")
@@ -451,18 +488,23 @@ class AnnotationCanvasDemo(QMainWindow):
         x = random.randint(-100, 100)
         y = random.randint(-100, 100)
         
-        if self.canvas.get_current_tool() == DrawType.POINT:
-            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
-        elif self.canvas.get_current_tool() == DrawType.RECTANGLE:
+        # 获取当前设置
+        current_tool = self.canvas.controller.data_manager.get_current_tool()
+        current_color = self.canvas.controller.data_manager.get_current_color()
+        current_width = self.canvas.controller.data_manager.get_current_width()
+        
+        if current_tool == DrawType.POINT:
+            shape = PointShape(QPointF(x, y), current_color, current_width)
+        elif current_tool == DrawType.RECTANGLE:
             shape = RectangleShape(
                 QPointF(x, y), 
                 QPointF(x + 30, y + 20), 
-                self.canvas.get_current_color(), 
-                self.canvas.get_current_width()
+                current_color, 
+                current_width
             )
         else:
             # 默认创建点
-            shape = PointShape(QPointF(x, y), self.canvas.get_current_color(), self.canvas.get_current_width())
+            shape = PointShape(QPointF(x, y), current_color, current_width)
         
         # 使用不支持撤销的添加方法
         self.canvas.add_shape(shape)
@@ -484,8 +526,8 @@ class AnnotationCanvasDemo(QMainWindow):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 
-                # 使用支持撤销的导入方法
-                success = self.canvas.import_data_with_undo(data)
+                # 使用导入方法
+                success = self.canvas.import_data(data)
                 
                 if success:
                     shape_count = len(data.get('shapes', []))

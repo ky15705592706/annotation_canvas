@@ -33,7 +33,7 @@ class EventBus:
             self._subscribers[event_type].append(callback)
             
             if self._debug_mode:
-                logger.debug(f"订阅事件: {event_type.value} -> {callback.__name__}")
+                pass
     
     def unsubscribe(self, event_type: EventType, callback: Callable):
         """
@@ -48,7 +48,7 @@ class EventBus:
                 self._subscribers[event_type].remove(callback)
                 
                 if self._debug_mode:
-                    logger.debug(f"取消订阅事件: {event_type.value} -> {callback.__name__}")
+                    pass
     
     def publish(self, event: Event):
         """
@@ -58,7 +58,7 @@ class EventBus:
             event: 要发布的事件
         """
         if self._debug_mode:
-            logger.debug(f"发布事件: {event}")
+            pass
         
         if event.type in self._subscribers:
             # 创建回调列表的副本，避免在回调中修改订阅列表

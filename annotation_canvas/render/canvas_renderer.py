@@ -11,7 +11,7 @@ from pyqtgraph import PlotDataItem, ScatterPlotItem
 from ..events import EventBus, Event, EventType, EventHandlerBase
 from ..data import DataManager
 from ..models import BaseShape
-from ..strategies import RenderStrategyFactory
+from .optimized_render_factory import OptimizedRenderFactory
 from ..utils.constants import (
     InteractionConstants, DisplayConstants, ColorConstants
 )
@@ -144,6 +144,9 @@ class CanvasRenderer(EventHandlerBase):
         
         graphics_item = self._create_shape_graphics_item(shape)
         if graphics_item:
+            # 自动设置z轴层级
+            shape._update_graphics_item_z_order()
+            
             self._shape_graphics_items[shape] = graphics_item
             self.canvas.addItem(graphics_item)
             shape.graphics_item = graphics_item
@@ -158,8 +161,8 @@ class CanvasRenderer(EventHandlerBase):
     
     def _create_shape_graphics_item(self, shape: BaseShape) -> Optional[Any]:
         """创建图形图形项"""
-        # 使用渲染策略工厂创建图形项
-        graphics_item = RenderStrategyFactory.create_graphics_item(shape)
+        # 使用优化渲染策略工厂创建图形项
+        graphics_item = OptimizedRenderFactory.create_graphics_item(shape)
         
         # 注意：不在这里添加到缓存或画布，由调用者负责
         return graphics_item
@@ -181,7 +184,7 @@ class CanvasRenderer(EventHandlerBase):
         graphics_item = self._shape_graphics_items[shape]
         
         # 使用渲染策略更新图形项
-        RenderStrategyFactory.update_graphics_item(shape, graphics_item)
+        OptimizedRenderFactory.update_graphics_item(shape, graphics_item)
     
     def _render_control_points(self, shape: BaseShape) -> None:
         """渲染控制点"""
@@ -244,6 +247,10 @@ class CanvasRenderer(EventHandlerBase):
             brush=pg.mkBrush(color=color), symbol='s'
         )
         
+        # 设置控制点Z轴层级为最高
+        from ..utils.constants import ZAxisConstants
+        graphics_item.setZValue(ZAxisConstants.CONTROL_POINT_Z_ORDER)
+        
         # 如果悬停，添加黑色边框
         if cp.hovered:
             border_pen = pg.mkPen(color=ColorConstants.CONTROL_POINT_HOVER, width=1)
@@ -271,7 +278,6 @@ class CanvasRenderer(EventHandlerBase):
         """清理资源"""
         from ..utils.logger import get_logger
         logger = get_logger(__name__)
-        logger.debug("渲染器开始清理资源")
         
         # 取消所有事件订阅
         if hasattr(self, '_event_handlers') and self._event_handlers:
@@ -284,4 +290,3 @@ class CanvasRenderer(EventHandlerBase):
         self._control_point_items.clear()
         self._temp_graphics_item = None
         
-        logger.debug("渲染器资源清理完成")

@@ -14,9 +14,9 @@ class PointShape(BaseShape):
     """点图形类"""
     
     def __init__(self, position: QPointF, color: DrawColor = DrawColor.RED, 
-                 pen_width: PenWidth = PenWidth.MEDIUM):
+                 pen_width: PenWidth = PenWidth.MEDIUM, z_order: int = None):
         self.position = position
-        super().__init__(DrawType.POINT, color, pen_width)
+        super().__init__(DrawType.POINT, color, pen_width, z_order)
     
     def _initialize_control_points(self):
         """初始化控制点 - 点图形只有一个中心控制点"""
@@ -98,8 +98,9 @@ class PointShape(BaseShape):
         position = QPointF(data['position'][0], data['position'][1])
         color = DrawColor(data.get('color', DrawColor.RED.value))
         pen_width = PenWidth(data.get('pen_width', PenWidth.MEDIUM.value))
+        z_order = data.get('z_order', None)
         
-        return cls(position, color, pen_width)
+        return cls(position, color, pen_width, z_order)
     
     def __str__(self) -> str:
         return f"PointShape(pos=({self.position.x():.1f}, {self.position.y():.1f}))"

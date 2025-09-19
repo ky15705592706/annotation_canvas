@@ -9,6 +9,9 @@ from PySide6.QtCore import Qt
 
 from ..events import EventBus, Event, EventType
 from ..core import DrawType, DrawColor, PenWidth
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class InputHandler:
@@ -259,7 +262,6 @@ class InputHandler:
         """清理资源"""
         from ..utils.logger import get_logger
         logger = get_logger(__name__)
-        logger.debug("输入处理器开始清理资源")
         
         # 取消所有事件订阅
         if hasattr(self, '_event_handlers') and self._event_handlers:
@@ -270,4 +272,3 @@ class InputHandler:
         # 重置状态
         self.reset_state()
         
-        logger.debug("输入处理器资源清理完成")

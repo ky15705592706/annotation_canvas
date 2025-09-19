@@ -15,10 +15,10 @@ class PolygonShape(BaseShape):
     """多边形图形类"""
     
     def __init__(self, vertices: List[QPointF], color: DrawColor = DrawColor.RED, 
-                 pen_width: PenWidth = PenWidth.MEDIUM):
+                 pen_width: PenWidth = PenWidth.MEDIUM, z_order: int = None):
         self.vertices = vertices.copy() if vertices else []
         self.closed = True  # 默认闭合
-        super().__init__(DrawType.POLYGON, color, pen_width)
+        super().__init__(DrawType.POLYGON, color, pen_width, z_order)
     
     def _initialize_control_points(self):
         """初始化控制点 - 多边形每个顶点一个控制点"""
@@ -56,6 +56,10 @@ class PolygonShape(BaseShape):
         n = len(self.vertices)
         
         return QPointF(x_sum / n, y_sum / n)
+    
+    def get_vertices(self) -> List[QPointF]:
+        """获取多边形顶点列表"""
+        return self.vertices.copy()
     
     
     def contains_point(self, point: QPointF, tolerance: float = None) -> bool:
@@ -214,8 +218,9 @@ class PolygonShape(BaseShape):
         vertices = [QPointF(v[0], v[1]) for v in data.get('vertices', [])]
         color = DrawColor(data.get('color', DrawColor.RED.value))
         pen_width = PenWidth(data.get('pen_width', PenWidth.MEDIUM.value))
+        z_order = data.get('z_order', None)
         
-        return cls(vertices, color, pen_width)
+        return cls(vertices, color, pen_width, z_order)
     
     def __str__(self) -> str:
         return f"PolygonShape(vertices={len(self.vertices)}, closed={self.is_closed()})"

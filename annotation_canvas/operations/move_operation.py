@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from PySide6.QtCore import QPointF
 from .preview_operation import PreviewOperation
 from ..models.shape import BaseShape
-from ..utils.coordinate_utils import CoordinateUtils
+from ..utils.coordinate_utils_functions import qpointf_to_dict, dict_to_qpointf
 
 class MoveOperation(PreviewOperation):
     """移动操作类"""
@@ -43,7 +43,7 @@ class MoveOperation(PreviewOperation):
         base_dict = super().to_dict()
         base_dict.update({
             'shapes': [shape.to_dict() for shape in self.shapes],
-            'offset': CoordinateUtils.qpointf_to_dict(self.offset),
+            'offset': qpointf_to_dict(self.offset),
             'executed': self.executed
         })
         return base_dict
@@ -59,7 +59,7 @@ class MoveOperation(PreviewOperation):
             pass
         
         offset_data = data.get('offset', {'x': 0, 'y': 0})
-        offset = CoordinateUtils.dict_to_qpointf(offset_data)
+        offset = dict_to_qpointf(offset_data)
         
         operation = cls(shapes, offset, data.get('description', ''))
         operation.executed = data.get('executed', False)

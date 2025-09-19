@@ -18,6 +18,8 @@ class CanvasConstants:
     # 画布尺寸
     MIN_WIDTH = 800
     MIN_HEIGHT = 600
+    DEFAULT_WIDTH = 400
+    DEFAULT_HEIGHT = 400
     
     # 默认视图范围
     DEFAULT_X_MIN = -200
@@ -132,6 +134,9 @@ class DisplayConstants:
 class ColorConstants:
     """颜色相关常量"""
     
+    # 画布背景颜色
+    CANVAS_BACKGROUND = (240, 240, 240)  # 浅灰色
+    
     # 控制点颜色
     CONTROL_POINT_DRAGGING = (255, 165, 0)  # 橙色
     CONTROL_POINT_HOVER = (255, 255, 0)     # 黄色
@@ -175,6 +180,24 @@ class StateConstants:
     # 坐标显示格式
     COORDINATE_FORMAT = "坐标: ({:.1f}, {:.1f})"
     ZOOM_FORMAT = "缩放: {}%"
+
+# Z轴层级相关常量
+class ZAxisConstants:
+    """Z轴层级相关常量"""
+    
+    # 默认z轴层级
+    DEFAULT_Z_ORDER = 2
+    
+    # 层级范围
+    MIN_Z_ORDER = 0
+    MAX_Z_ORDER = 15
+    
+    # 特殊层级
+    BACKGROUND_Z_ORDER = 0
+    FOREGROUND_Z_ORDER = 15
+    
+    # 控制点层级 - 始终在最上层
+    CONTROL_POINT_Z_ORDER = 16
 
 # 操作相关常量
 class OperationConstants:

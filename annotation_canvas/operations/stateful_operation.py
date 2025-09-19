@@ -39,7 +39,6 @@ class StatefulOperation(BaseOperation):
                 result = self._execute_func()
                 if result:
                     self.executed = True
-                    logger.debug(f"操作执行成功: {self.description}")
                 return result
             except Exception as e:
                 logger.error(f"操作执行失败: {self.description}, 错误: {e}")
@@ -53,7 +52,6 @@ class StatefulOperation(BaseOperation):
                 result = self._undo_func()
                 if result:
                     self.executed = False
-                    logger.debug(f"操作撤销成功: {self.description}")
                 return result
             except Exception as e:
                 logger.error(f"操作撤销失败: {self.description}, 错误: {e}")
@@ -67,7 +65,6 @@ class StatefulOperation(BaseOperation):
                 result = self._redo_func()
                 if result:
                     self.executed = True
-                    logger.debug(f"操作重做成功: {self.description}")
                 return result
             except Exception as e:
                 logger.error(f"操作重做失败: {self.description}, 错误: {e}")
@@ -93,7 +90,6 @@ class StatefulOperation(BaseOperation):
     def reset_state(self) -> None:
         """重置操作状态"""
         self.executed = False
-        logger.debug(f"操作状态已重置: {self.description}")
 
 
 class SimpleStatefulOperation(StatefulOperation):

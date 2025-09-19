@@ -57,7 +57,7 @@ app.exec()
 ### 演示程序
 
 ```bash
-python run_demo.py
+python -m annotation_canvas.demo
 ```
 
 ## 功能特性
@@ -79,16 +79,16 @@ python run_demo.py
 
 ### 快捷键
 
-- **Ctrl+A**：切换标注模式
-- **Ctrl+1**：循环切换绘制工具
-- **Ctrl+2**：循环切换颜色
-- **Ctrl+3**：循环切换线宽
-- **Ctrl+G**：切换网格吸附
+- **Ctrl+A**：切换标注模式（标注模式/默认模式）
+- **Ctrl+1**：循环切换绘制工具（点→矩形→椭圆→多边形）
+- **Ctrl+2**：循环切换颜色（红→绿→蓝→黄→紫）
+- **Ctrl+3**：循环切换线宽（细→中→粗）
 - **Delete**：删除选中的图形
 - **Shift+Delete**：清空所有标注
 - **Ctrl+Z**：撤销操作
 - **Ctrl+Y**：重做操作
-- **ESC**：取消多边形创建
+- **ESC**：取消多边形创建（需要确认弹窗）
+- **鼠标滚轮**：缩放画布（标注模式下也支持）
 
 ### 多边形创建
 
@@ -96,11 +96,9 @@ python run_demo.py
 
 1. **开始创建**：选择多边形工具，在画布上点击开始创建
 2. **添加顶点**：左键点击添加顶点
-3. **吸附功能**：当鼠标靠近起始点时，会自动吸附到起始点位置
-4. **自动闭合**：当吸附到起始点时，点击左键会自动闭合多边形并完成创建
-5. **完成创建**：
-   - 点击起始点附近自动闭合
-   - 或按 ESC 键取消创建
+3. **完成创建**：鼠标移动到起始点附近时自动吸附闭合
+4. **取消创建**：按 ESC 键取消多边形创建（会弹出确认对话框）
+5. **注意**：多边形不绘制闭合提示线，只绘制顶点之间的连线
 
 ## 高级用法
 
@@ -147,45 +145,34 @@ from PySide6.QtCore import QObject
 class ShapeMonitor(QObject):
     def __init__(self, canvas):
         super().__init__()
-        # 连接图形添加信号
+        # 连接图形信号
         canvas.shape_added.connect(self.on_shape_added)
-        canvas.shape_moved.connect(self.on_shape_moved)
-        canvas.shape_modified.connect(self.on_shape_modified)
-        canvas.shape_deleted.connect(self.on_shape_deleted)
+        canvas.shape_updated.connect(self.on_shape_updated)
+        canvas.shape_removed.connect(self.on_shape_removed)
         canvas.shape_selected.connect(self.on_shape_selected)
         canvas.shape_deselected.connect(self.on_shape_deselected)
     
     def on_shape_added(self, shape):
         """处理图形添加信号"""
         print(f"添加了图形: {shape.shape_type.name}")
-        print(f"位置: {shape.get_position()}")
         print(f"颜色: {shape.color.name}")
+        print(f"线宽: {shape.pen_width.name}")
     
-    def on_shape_moved(self, shape):
-        """处理图形移动信号"""
-        print(f"移动了图形: {shape.shape_type.name}")
-        if hasattr(shape, 'get_position'):
-            pos = shape.get_position()
-            print(f"当前位置: ({pos.x():.1f}, {pos.y():.1f})")
-    
-    def on_shape_modified(self, shape):
-        """处理图形修改信号"""
-        print(f"修改了图形: {shape.shape_type.name}")
+    def on_shape_updated(self, shape):
+        """处理图形更新信号"""
+        print(f"更新了图形: {shape.shape_type.name}")
         bounds = shape.get_bounds()
         print(f"当前边界: x:{bounds.x():.1f}, y:{bounds.y():.1f}, w:{bounds.width():.1f}, h:{bounds.height():.1f}")
     
-    def on_shape_deleted(self, shape):
+    def on_shape_removed(self, shape):
         """处理图形删除信号"""
         print(f"删除了图形: {shape.shape_type.name}")
-        if hasattr(shape, 'get_position'):
-            pos = shape.get_position()
-            print(f"删除前位置: ({pos.x():.1f}, {pos.y():.1f})")
     
     def on_shape_selected(self, shape):
         """处理图形选择信号"""
         print(f"选择了图形: {shape.shape_type.name}")
     
-    def on_shape_deselected(self):
+    def on_shape_deselected(self, shape):
         """处理图形取消选择信号"""
         print("取消选择图形")
 
@@ -282,11 +269,11 @@ annotation_canvas/
 └── __init__.py          # 包初始化
 ```
 
-### 运行测试
+### 运行演示
 
 ```bash
 # 运行演示程序
-python run_demo.py
+python -m annotation_canvas.demo
 
 # 检查代码质量
 flake8 annotation_canvas/

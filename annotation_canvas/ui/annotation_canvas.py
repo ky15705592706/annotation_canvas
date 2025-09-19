@@ -1,399 +1,370 @@
 """
-新的标注画布 - 使用事件驱动架构
+改进的注解画布 - 使用依赖注入和事件驱动架构
 """
 
-from typing import Optional
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QMessageBox, QStatusBar
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer
-from PySide6.QtGui import QMouseEvent, QWheelEvent, QKeyEvent, QKeySequence, QAction
-
+from typing import Optional, List
+from PySide6.QtCore import QPointF, Qt, Signal, QTimer
+from PySide6.QtGui import QMouseEvent, QKeyEvent, QWheelEvent
 import pyqtgraph as pg
-from pyqtgraph import PlotWidget
 
 from ..core import DrawType, DrawColor, PenWidth
 from ..models import BaseShape
 from ..utils.constants import (
-    CanvasConstants, ZoomConstants, StateConstants
+    AppConstants, CanvasConstants, InteractionConstants, 
+    DisplayConstants, ColorConstants
 )
 from ..utils.logger import get_logger
 from .annotation_controller import AnnotationController
+from ..di import DIContainer
 
 logger = get_logger(__name__)
 
 
-class AnnotationCanvas(PlotWidget):
-    """新的标注画布类 - 使用事件驱动架构"""
+class AnnotationCanvas(pg.PlotWidget):
+    """AnnotationCanvas - 基于PyQtGraph的图形标注画布组件，使用依赖注入和事件驱动架构"""
     
     # 信号定义
+    shape_added = Signal(BaseShape)
+    shape_removed = Signal(BaseShape)
+    shape_updated = Signal(BaseShape)
     shape_selected = Signal(BaseShape)
-    shape_deselected = Signal()
-    shape_added = Signal(BaseShape)  # 图形添加信号
-    shape_moved = Signal(BaseShape)  # 图形移动信号 (修改后的图形)
-    shape_modified = Signal(BaseShape)  # 图形修改信号 (修改后的图形)
-    shape_deleted = Signal(BaseShape)  # 图形删除信号 (被删除的图形)
+    shape_deselected = Signal(BaseShape)
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None, container: DIContainer = None):
+        """
+        初始化改进的画布
         
-        # 初始化状态
-        self.annotation_mode: bool = False  # False=默认模式, True=标注模式
+        Args:
+            parent: 父组件
+            container: 依赖注入容器（可选）
+        """
+        super().__init__(parent)
+        
+        # 创建或使用提供的依赖注入容器
+        self.container = container or DIContainer()
+        
+        # 标注模式状态
+        self.annotation_mode = False
+        
+        # 初始化画布
+        self._setup_canvas()
         
         # 创建控制器
-        self.controller = AnnotationController(self)
+        self.controller = AnnotationController(self, self.container)
         
-        # 设置用户界面
-        self._setup_ui()
+        # 从容器获取事件总线
+        from ..events import EventBus
+        self.event_bus = self.container.get(EventBus)
         
-        # 设置焦点策略
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        # 设置事件处理
+        self._setup_event_handling()
         
-        # 初始化状态栏
-        self._create_status_bar()
-        self._update_status_bar()
+        # 订阅事件
+        self._subscribe_events()
+        
     
-    def _setup_ui(self):
-        """设置用户界面"""
-        # 设置画布基本属性
-        self.setBackground('w')
-        self.showGrid(x=True, y=True, alpha=CanvasConstants.GRID_ALPHA)
+    def _setup_canvas(self):
+        """设置画布"""
+        # 设置画布属性
+        self.setBackground(ColorConstants.CANVAS_BACKGROUND)
+        self.setMouseEnabled(x=True, y=True)
+        self.setMenuEnabled(False)
         self.setLabel('left', 'Y')
         self.setLabel('bottom', 'X')
+        self.setTitle('改进的图形标注画布')
+        
+        # 设置网格
+        self.showGrid(x=True, y=True, alpha=0.3)
+        
+        # 设置视图范围
+        self.setXRange(0, CanvasConstants.DEFAULT_WIDTH)
+        self.setYRange(0, CanvasConstants.DEFAULT_HEIGHT)
+        
+        # 设置交互
         self.setAspectLocked(True)
         self.setMouseEnabled(x=True, y=True)
-        self.setMenuEnabled(True)
         
-        # 设置默认视图范围
-        self.view = self.getViewBox()
-        self.view.setRange(QRectF(
-            CanvasConstants.DEFAULT_X_MIN, CanvasConstants.DEFAULT_Y_MIN,
-            CanvasConstants.DEFAULT_X_MAX - CanvasConstants.DEFAULT_X_MIN,
-            CanvasConstants.DEFAULT_Y_MAX - CanvasConstants.DEFAULT_Y_MIN
-        ))
+        # 设置焦点策略以接收键盘事件
+        self.setFocusPolicy(Qt.StrongFocus)
     
-    def _create_status_bar(self):
-        """创建状态栏"""
-        # 创建状态栏
-        self.status_bar = QStatusBar()
+    def _setup_event_handling(self):
+        """设置事件处理"""
+        # 连接信号
+        self.scene().sigMouseClicked.connect(self._on_mouse_clicked)
+        self.scene().sigMouseMoved.connect(self._on_mouse_moved)
         
-        # 添加状态标签
-        self.status_label = QLabel(StateConstants.STATUS_READY)
-        self.coordinate_label = QLabel(StateConstants.INITIAL_COORDINATE_TEXT)
-        self.zoom_label = QLabel(StateConstants.INITIAL_ZOOM_TEXT)
-        self.tool_label = QLabel(f"工具: {self.controller.get_current_tool().name}")
-        self.color_label = QLabel(f"颜色: {self.controller.get_current_color().name}")
-        self.snap_label = QLabel("网格吸附: 关闭")
-        
-        # 添加到状态栏
-        self.status_bar.addWidget(self.status_label)
-        self.status_bar.addWidget(self.tool_label)
-        self.status_bar.addWidget(self.color_label)
-        self.status_bar.addWidget(self.snap_label)
-        self.status_bar.addPermanentWidget(self.coordinate_label)
-        self.status_bar.addPermanentWidget(self.zoom_label)
-        
-        # 设置样式
-        self.status_bar.setStyleSheet("QStatusBar { background-color: #f0f0f0; border-top: 1px solid #c0c0c0; }")
-    
-    
-    def _update_status_bar(self):
-        """更新状态栏"""
-        if self.status_label:
-            mode_text = "标注模式" if self.annotation_mode else "默认模式"
-            current_state = self.controller.get_current_state()
-            
-            # 根据当前状态显示不同的提示
-            if current_state.name == "CREATING_POLYGON":
-                status_text = "多边形创建中 - 左键添加顶点，ESC取消，点击起始点自动闭合"
-            else:
-                status_text = f"{StateConstants.STATUS_READY} - {mode_text}"
-            
-            self.status_label.setText(status_text)
-        
-        if self.tool_label:
-            self.tool_label.setText(f"工具: {self.controller.get_current_tool().name}")
-        
-        if self.color_label:
-            self.color_label.setText(f"颜色: {self.controller.get_current_color().name}")
-        
-        if self.snap_label:
-            from ..utils.config import Config
-            config = Config()
-            snap_status = "开启" if config.is_snap_to_grid() else "关闭"
-            self.snap_label.setText(f"网格吸附: {snap_status}")
-        
-        if self.coordinate_label:
-            self.coordinate_label.setText(StateConstants.INITIAL_COORDINATE_TEXT)
-        
-        if self.zoom_label:
-            self.zoom_label.setText(StateConstants.INITIAL_ZOOM_TEXT)
+        # 重写鼠标事件处理方法
+        self.mousePressEvent = self._mouse_press_event
+        self.mouseMoveEvent = self._mouse_move_event
+        self.mouseReleaseEvent = self._mouse_release_event
+        self.wheelEvent = self._wheel_event
     
     # 鼠标事件处理
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        """处理鼠标按下事件"""
-        if self.annotation_mode and event.button() == Qt.MouseButton.LeftButton:
+    def _on_mouse_clicked(self, event):
+        """处理鼠标点击事件（PyQtGraph信号）"""
+        if self.annotation_mode and event.button() == Qt.LeftButton:
             # 标注模式：处理标注功能
-            self.controller.handle_mouse_press(event)
-        else:
-            # 默认模式：使用PlotWidget的默认行为
-            super().mousePressEvent(event)
+            pos = event.pos()
+            world_pos = self.plotItem.vb.mapSceneToView(pos)
+            self.controller.input_handler.handle_mouse_press(event, world_pos)
+        # 默认模式：不处理，让PyQtGraph处理（拖拽坐标系）
     
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """处理鼠标移动事件"""
+    def _on_mouse_moved(self, event):
+        """处理鼠标移动事件（PyQtGraph信号）"""
         if self.annotation_mode:
             # 标注模式：处理标注功能
-            self.controller.handle_mouse_move(event)
-            self._update_status_bar()
+            # PyQtGraph的sigMouseMoved信号直接传递QPointF，不是QMouseEvent
+            pos = event  # event本身就是QPointF
+            world_pos = self.plotItem.vb.mapSceneToView(pos)
+            # 创建一个模拟的QMouseEvent用于InputHandler
+            from PySide6.QtGui import QMouseEvent
+            from PySide6.QtCore import Qt
+            mock_event = QMouseEvent(QMouseEvent.MouseMove, pos, Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)
+            self.controller.input_handler.handle_mouse_move(mock_event, world_pos)
+        # 默认模式：不处理，让PyQtGraph处理（拖拽坐标系）
+    
+    def _mouse_press_event(self, event: QMouseEvent):
+        """处理鼠标按下事件（Qt事件）"""
+        if self.annotation_mode and event.button() == Qt.LeftButton:
+            # 标注模式：处理标注功能
+            pos = event.pos()
+            world_pos = self.plotItem.vb.mapSceneToView(pos)
+            self.controller.input_handler.handle_mouse_press(event, world_pos)
         else:
-            # 默认模式：使用PlotWidget的默认行为
+            # 默认模式：使用PlotWidget的默认行为（拖拽坐标系）
+            super().mousePressEvent(event)
+    
+    def _mouse_move_event(self, event: QMouseEvent):
+        """处理鼠标移动事件（Qt事件）"""
+        if self.annotation_mode:
+            # 标注模式：处理标注功能
+            pos = event.pos()
+            world_pos = self.plotItem.vb.mapSceneToView(pos)
+            self.controller.input_handler.handle_mouse_move(event, world_pos)
+        else:
+            # 默认模式：使用PlotWidget的默认行为（拖拽坐标系）
             super().mouseMoveEvent(event)
     
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        """处理鼠标释放事件"""
-        if self.annotation_mode and event.button() == Qt.MouseButton.LeftButton:
+    def _mouse_release_event(self, event: QMouseEvent):
+        """处理鼠标释放事件（Qt事件）"""
+        if self.annotation_mode and event.button() == Qt.LeftButton:
             # 标注模式：处理标注功能
-            self.controller.handle_mouse_release(event)
+            pos = event.pos()
+            world_pos = self.plotItem.vb.mapSceneToView(pos)
+            self.controller.input_handler.handle_mouse_release(event, world_pos)
         else:
-            # 默认模式：使用PlotWidget的默认行为
+            # 默认模式：使用PlotWidget的默认行为（拖拽坐标系）
             super().mouseReleaseEvent(event)
     
-    def wheelEvent(self, event: QWheelEvent) -> None:
-        """处理滚轮事件"""
-        # 检查缩放限制
-        delta = event.angleDelta().y()
-        zoom_factor = 1.0 + (delta / ZoomConstants.ZOOM_FACTOR_DIVISOR)
-        
-        # 只有放大时才检查限制
-        if zoom_factor > 1.0:
-            current_pixel_size = self.getViewBox().viewPixelSize()[0]
-            new_pixel_size = current_pixel_size / zoom_factor
-            
-            if new_pixel_size < ZoomConstants.MAX_ZOOM_PIXEL_SIZE:
-                return  # 已达到最大放大倍数
-        
-        super().wheelEvent(event)
+    def _wheel_event(self, event: QWheelEvent):
+        """处理鼠标滚轮事件（Qt事件）"""
+        if self.annotation_mode:
+            # 标注模式：处理标注功能，但也允许缩放
+            pos = event.position().toPoint()
+            world_pos = self.plotItem.vb.mapSceneToView(pos)
+            self.controller.input_handler.handle_wheel_event(event, world_pos)
+            super().wheelEvent(event)
+        else:
+            # 默认模式：使用PlotWidget的默认行为（缩放坐标系）
+            super().wheelEvent(event)
     
-    def keyPressEvent(self, event: QKeyEvent) -> None:
+    
+    
+    # 键盘事件处理
+    def keyPressEvent(self, event: QKeyEvent):
         """处理键盘按下事件"""
-        
-        # 传递给控制器处理所有快捷键
-        self.controller.handle_key_press(event)
+        self.controller.input_handler.handle_key_press(event)
+        super().keyPressEvent(event)
     
+    def keyReleaseEvent(self, event: QKeyEvent):
+        """处理键盘释放事件"""
+        self.controller.input_handler.handle_key_release(event)
+        super().keyReleaseEvent(event)
+    
+    # 公共API - 使用事件驱动的方式
+    def set_draw_tool(self, tool: DrawType) -> None:
+        """设置绘制工具"""
+        from ..events import Event, EventType
+        self.controller.data_manager.set_current_tool(tool)
+        self.controller.event_bus.publish(Event(EventType.TOOL_CHANGED, {
+            'tool': tool
+        }))
+    
+    def set_draw_color(self, color: DrawColor) -> None:
+        """设置绘制颜色"""
+        from ..events import Event, EventType
+        self.controller.data_manager.set_current_color(color)
+        self.controller.event_bus.publish(Event(EventType.COLOR_CHANGED, {
+            'color': color
+        }))
+    
+    def set_pen_width(self, width: PenWidth) -> None:
+        """设置画笔宽度"""
+        from ..events import Event, EventType
+        self.controller.data_manager.set_current_width(width)
+        self.controller.event_bus.publish(Event(EventType.WIDTH_CHANGED, {
+            'width': width
+        }))
+    
+    def get_draw_tool(self) -> DrawType:
+        """获取当前绘制工具"""
+        return self.controller.data_manager.get_current_tool()
+    
+    def get_draw_color(self) -> DrawColor:
+        """获取当前绘制颜色"""
+        return self.controller.data_manager.get_current_color()
+    
+    def get_pen_width(self) -> PenWidth:
+        """获取当前画笔宽度"""
+        return self.controller.data_manager.get_current_width()
+    
+    def add_shape(self, shape: BaseShape) -> None:
+        """添加图形"""
+        self.controller.data_manager.add_shape(shape)
+    
+    def remove_shape(self, shape: BaseShape) -> None:
+        """删除图形"""
+        self.controller.data_manager.remove_shape(shape)
+    
+    def get_shapes(self) -> List[BaseShape]:
+        """获取所有图形（事件驱动）"""
+        return self.controller.get_all_shapes()
+    
+    def get_selected_shape(self) -> Optional[BaseShape]:
+        """获取选中的图形（事件驱动）"""
+        return self.controller.get_selected_shape()
+    
+    def select_shape(self, shape: Optional[BaseShape]) -> None:
+        """选择图形（事件驱动）"""
+        self.controller.select_shape(shape)
+    
+    def clear_all_shapes(self) -> None:
+        """清空所有图形"""
+        self.controller.clear_all_shapes()
+    
+    def get_shape_at_position(self, position: QPointF, tolerance: float = None) -> Optional[BaseShape]:
+        """获取指定位置的图形（事件驱动）"""
+        return self.controller.get_shape_at_position(position, tolerance)
+    
+    # Z轴管理
+    def set_shape_z_order(self, shape: BaseShape, z_order: int) -> None:
+        """设置图形的z轴层级"""
+        from ..events import Event, EventType
+        shape.set_z_order(z_order)
+        self.controller.event_bus.publish(Event(EventType.SHAPE_UPDATED, {
+            'shape': shape
+        }))
+    
+    def bring_shape_to_front(self, shape: BaseShape) -> None:
+        """将图形置于最前"""
+        from ..events import Event, EventType
+        shape.bring_to_front()
+        self.controller.event_bus.publish(Event(EventType.SHAPE_UPDATED, {
+            'shape': shape
+        }))
+    
+    def send_shape_to_back(self, shape: BaseShape) -> None:
+        """将图形置于最后"""
+        from ..events import Event, EventType
+        shape.send_to_back()
+        self.controller.event_bus.publish(Event(EventType.SHAPE_UPDATED, {
+            'shape': shape
+        }))
+    
+    def get_shape_z_order(self, shape: BaseShape) -> int:
+        """获取图形的z轴层级"""
+        return shape.get_z_order()
+    
+    # 延迟删除功能
+    def clear_all_delayed(self, delay_ms: int = 1000) -> None:
+        """延迟清空所有图形"""
+        if delay_ms <= 0:
+            self.clear_all_shapes()
+        else:
+            QTimer.singleShot(delay_ms, self.clear_all_shapes)
+    
+    def remove_shape_delayed(self, shape: BaseShape, delay_ms: int = 1000) -> None:
+        """延迟删除单个图形"""
+        if delay_ms <= 0:
+            self.remove_shape(shape)
+        else:
+            QTimer.singleShot(delay_ms, lambda: self.remove_shape(shape))
+    
+    def remove_shapes_delayed(self, shapes: List[BaseShape], delay_ms: int = 1000) -> None:
+        """延迟删除多个图形"""
+        if delay_ms <= 0:
+            for shape in shapes:
+                self.remove_shape(shape)
+        else:
+            QTimer.singleShot(delay_ms, lambda: [self.remove_shape(shape) for shape in shapes])
+    
+    def remove_all_except_delayed(self, keep_shape: BaseShape, delay_ms: int = 1000) -> None:
+        """延迟删除除指定图形外的所有图形"""
+        if delay_ms <= 0:
+            self._remove_all_except(keep_shape)
+        else:
+            QTimer.singleShot(delay_ms, lambda: self._remove_all_except(keep_shape))
+    
+    def _remove_all_except(self, keep_shape: BaseShape) -> None:
+        """删除除指定图形外的所有图形"""
+        all_shapes = self.get_shapes()
+        shapes_to_remove = [shape for shape in all_shapes if shape != keep_shape]
+        self.remove_shapes_delayed(shapes_to_remove, 0)
+    
+    # 撤销重做
+    def undo(self) -> None:
+        """撤销操作"""
+        self.controller.undo()
+    
+    def redo(self) -> None:
+        """重做操作"""
+        self.controller.redo()
+    
+    def can_undo(self) -> bool:
+        """检查是否可以撤销"""
+        return self.controller.can_undo()
+    
+    def can_redo(self) -> bool:
+        """检查是否可以重做"""
+        return self.controller.can_redo()
+    
+    def get_operation_history(self) -> List[str]:
+        """获取操作历史"""
+        return self.controller.get_operation_history()
+    
+    # 数据导入导出
+    def export_data(self) -> dict:
+        """导出数据"""
+        return self.controller.data_manager.export_data()
+    
+    def import_data(self, data: dict) -> None:
+        """导入数据"""
+        self.controller.data_manager.import_data(data)
+    
+    def _subscribe_events(self) -> None:
+        """订阅事件"""
+        # 订阅模式改变事件
+        from ..events import EventType
+        self.event_bus.subscribe(EventType.MODE_CHANGED, self._on_mode_changed)
+    
+    def _on_mode_changed(self, event) -> None:
+        """处理模式改变事件"""
+        mode = event.data.get('mode')
+        key_event = event.data.get('key_event', False)
+        if mode == 'annotation_toggle':
+            self._toggle_annotation_mode()
     
     def _toggle_annotation_mode(self) -> None:
         """切换标注模式"""
         self.annotation_mode = not self.annotation_mode
         mode_text = "标注模式" if self.annotation_mode else "默认模式"
+        logger.info(f"切换标注模式: {mode_text}")
         
-        # 更新状态栏显示当前模式
-        self._update_status_bar()
-    
-    def _clear_all_annotations(self) -> None:
-        """清空所有标注"""
-        reply = QMessageBox.question(
-            self, "确认", "确定要清空所有标注吗？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.controller.clear_all_shapes()
-    
-    
-    
-    # 工具设置方法
-    def set_current_tool(self, tool: DrawType) -> None:
-        """设置当前工具"""
-        self.controller.set_current_tool(tool)
-        self._update_status_bar()
-    
-    def set_current_color(self, color: DrawColor) -> None:
-        """设置当前颜色"""
-        self.controller.set_current_color(color)
-        self._update_status_bar()
-    
-    def set_current_width(self, width: PenWidth) -> None:
-        """设置当前线宽"""
-        self.controller.set_current_width(width)
-        self._update_status_bar()
-    
-    def get_current_tool(self) -> DrawType:
-        """获取当前工具"""
-        return self.controller.get_current_tool()
-    
-    def get_current_color(self) -> DrawColor:
-        """获取当前颜色"""
-        return self.controller.get_current_color()
-    
-    def get_current_width(self) -> PenWidth:
-        """获取当前线宽"""
-        return self.controller.get_current_width()
-    
-    # 缩放方法
-    def zoom_in(self) -> None:
-        """放大"""
-        from ..utils.constants import DisplayConstants
-        factor = DisplayConstants.ZOOM_IN_FACTOR
-        self.getViewBox().scaleBy((factor, factor))
-    
-    def zoom_out(self) -> None:
-        """缩小"""
-        from ..utils.constants import DisplayConstants
-        factor = DisplayConstants.ZOOM_OUT_FACTOR
-        self.getViewBox().scaleBy((factor, factor))
-    
-    # 数据管理方法
-    def add_shape(self, shape: BaseShape) -> None:
-        """添加图形（不支持撤销）"""
-        self.controller.add_shape(shape)
-    
-    def add_shape_with_undo(self, shape: BaseShape) -> bool:
-        """添加图形（支持撤销）"""
-        success = self.controller.add_shape_with_undo(shape)
-        
-        if success:
-            # 更新状态栏
-            self._update_status_bar()
-            logger.info("添加图形成功，可以通过 Ctrl+Z 撤销")
-        
-        return success
-    
-    def remove_shape(self, shape: BaseShape) -> bool:
-        """移除图形"""
-        return self.controller.remove_shape(shape)
-    
-    def clear_all(self) -> None:
-        """清空所有图形"""
-        self.controller.clear_all_shapes()
-    
-    def clear_all_delayed(self, delay_ms: int = 0) -> None:
-        """
-        延迟清空所有图形
-        
-        Args:
-            delay_ms: 延迟时间（毫秒），0表示立即清空
-        """
-        # 延迟清空
-        QTimer.singleShot(delay_ms, self.clear_all)
-        logger.debug(f"已安排延迟清空，延迟{delay_ms}毫秒")
-    
-    def remove_shape_delayed(self, shape, delay_ms: int = 0) -> None:
-        """
-        延迟删除单个图形
-        
-        Args:
-            shape: 要删除的图形
-            delay_ms: 延迟时间（毫秒），0表示立即删除
-        """
-        QTimer.singleShot(delay_ms, lambda: self.remove_shape(shape))
-        logger.debug(f"已安排延迟删除图形，延迟{delay_ms}毫秒")
-    
-    def remove_shapes_delayed(self, shapes, delay_ms: int = 0) -> None:
-        """
-        延迟删除多个图形
-        
-        Args:
-            shapes: 要删除的图形列表
-            delay_ms: 延迟时间（毫秒），0表示立即删除
-        """
-        QTimer.singleShot(delay_ms, lambda: self._remove_shapes_batch(shapes))
-        logger.debug(f"已安排延迟删除{len(shapes)}个图形，延迟{delay_ms}毫秒")
-    
-    def remove_all_except_delayed(self, keep_shape, delay_ms: int = 0) -> None:
-        """
-        延迟删除除指定图形外的所有图形
-        
-        Args:
-            keep_shape: 要保留的图形
-            delay_ms: 延迟时间（毫秒），0表示立即删除
-        """
-        QTimer.singleShot(delay_ms, lambda: self._remove_all_except(keep_shape))
-        logger.debug(f"已安排延迟删除除指定图形外的所有图形，延迟{delay_ms}毫秒")
-    
-    def _remove_shapes_batch(self, shapes) -> None:
-        """批量删除图形"""
-        for shape in shapes:
-            self.remove_shape(shape)
-    
-    def _remove_all_except(self, keep_shape) -> None:
-        """删除除指定图形外的所有图形"""
-        all_shapes = self.get_shapes()
-        # 收集要删除的图形（排除要保留的图形）
-        shapes_to_remove = [shape for shape in all_shapes if shape != keep_shape]
-        # 使用批量删除方法
-        self._remove_shapes_batch(shapes_to_remove)
-    
-    def update_display(self) -> None:
-        """更新显示"""
-        self.controller.update_display()
-    
-    def get_shapes(self):
-        """获取所有图形"""
-        return self.controller.get_shapes()
-    
-    def get_selected_shape(self):
-        """获取选中的图形"""
-        return self.controller.get_selected_shape()
-    
-    # 数据导入导出
-    def export_data(self) -> dict:
-        """导出数据"""
-        return self.controller.export_data()
-    
-    def import_data(self, data: dict) -> bool:
-        """导入数据（不支持撤销）"""
-        return self.controller.import_data(data)
-    
-    def import_data_with_undo(self, data: dict) -> bool:
-        """导入数据（支持撤销）"""
-        success = self.controller.import_data_with_undo(data)
-        
-        if success:
-            # 更新状态栏
-            self._update_status_bar()
-        
-        return success
-    
-    # 调试方法
-    def set_debug_mode(self, enabled: bool) -> None:
-        """设置调试模式"""
-        self.controller.set_debug_mode(enabled)
-    
-    def get_current_state(self):
-        """获取当前状态"""
-        return self.controller.get_current_state()
-    
-    def get_input_state(self) -> dict:
-        """获取输入状态"""
-        return self.controller.get_input_state()
-    
-    # 兼容性属性
-    @property
-    def plot_widget(self):
-        """兼容性属性 - 返回自身"""
-        return self
+        # 可以在这里添加状态栏更新或其他UI反馈
+        # 例如：self.statusBar().showMessage(f"当前模式: {mode_text}")
     
     def cleanup(self) -> None:
         """清理资源"""
-        logger.debug("画布开始清理资源")
-        
-        # 清理控制器
-        if hasattr(self, 'controller') and self.controller:
+        logger.info("清理AnnotationCanvas资源")
+        if hasattr(self, 'controller'):
             self.controller.cleanup()
-        
-        # 清理 PyQtGraph 资源
-        try:
-            # 断开所有信号连接
-            if hasattr(self, 'plotItem') and self.plotItem:
-                if hasattr(self.plotItem, 'vb') and self.plotItem.vb:
-                    # 清理 ViewBox
-                    self.plotItem.vb.clear()
-                    # 断开信号连接
-                    self.plotItem.vb.disconnect()
-        except Exception as e:
-            logger.debug(f"清理 PyQtGraph 资源时出现异常: {e}")
-        
-        logger.debug("画布资源清理完成")
-    
-    def closeEvent(self, event):
-        """窗口关闭事件"""
-        self.cleanup()
-        super().closeEvent(event)

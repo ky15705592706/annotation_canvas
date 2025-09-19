@@ -63,7 +63,6 @@ class ShapeCreationService:
                 self.data_manager.add_shape(shape)
                 self.data_manager.select_shape(shape)
             
-            logger.info(f"成功创建图形: {shape_type.name}")
             return shape
             
         except Exception as e:
@@ -175,7 +174,6 @@ class ShapeCreationService:
             # 清理临时图形
             self.data_manager.set_temp_shape(None)
             
-            logger.info(f"成功完成图形创建: {shape.shape_type.name}")
             return True
             
         except Exception as e:

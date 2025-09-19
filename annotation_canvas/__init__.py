@@ -64,7 +64,7 @@ from .factories.shape_factory import ShapeFactory
 from .services.shape_creation_service import ShapeCreationService
 
 # 导入渲染策略
-from .strategies.render_strategy import RenderStrategy, RenderStrategyFactory
+from .render.optimized_render_factory import OptimizedRenderFactory as RenderStrategyFactory
 
 # 定义公开的API
 __all__ = [
@@ -120,7 +120,6 @@ __all__ = [
     "ShapeCreationService",
     
     # 渲染策略
-    "RenderStrategy",
     "RenderStrategyFactory",
 ]
 

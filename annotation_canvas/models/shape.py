@@ -7,12 +7,13 @@ from typing import List, Dict, Any, Optional, Tuple
 from PySide6.QtCore import QPointF, QRectF
 from ..core.enums import DrawType, DrawColor, PenWidth, ControlPointType
 from .control_point import ControlPoint
+from ..utils.constants import ZAxisConstants
 
 class BaseShape(ABC):
     """图形基类"""
     
     def __init__(self, shape_type: DrawType, color: DrawColor = DrawColor.RED, 
-                 pen_width: PenWidth = PenWidth.MEDIUM):
+                 pen_width: PenWidth = PenWidth.MEDIUM, z_order: int = None):
         self.shape_type = shape_type
         self.color = color
         self.pen_width = pen_width
@@ -22,6 +23,10 @@ class BaseShape(ABC):
         self.control_points: List[ControlPoint] = []
         self.graphics_item = None  # PyQtGraph图形项引用
         self.metadata: Dict[str, Any] = {}  # 额外数据存储
+        
+        # Z轴层级管理
+        self.z_order = z_order if z_order is not None else ZAxisConstants.DEFAULT_Z_ORDER
+        self._validate_z_order()
         
         # 初始化控制点
         self._initialize_control_points()
@@ -124,6 +129,40 @@ class BaseShape(ABC):
         """清空元数据"""
         self.metadata.clear()
     
+    def _validate_z_order(self) -> None:
+        """验证并修正z轴层级值"""
+        from ..utils.z_axis_utils import validate_z_order
+        self.z_order = validate_z_order(self.z_order)
+    
+    def set_z_order(self, z_order: int) -> None:
+        """设置z轴层级"""
+        self.z_order = z_order
+        self._validate_z_order()
+        self._update_graphics_item_z_order()
+    
+    def get_z_order(self) -> int:
+        """获取z轴层级"""
+        return self.z_order
+    
+    def bring_to_front(self) -> None:
+        """将图形置于最前"""
+        self.set_z_order(ZAxisConstants.FOREGROUND_Z_ORDER)
+    
+    def send_to_back(self) -> None:
+        """将图形置于最后"""
+        self.set_z_order(ZAxisConstants.BACKGROUND_Z_ORDER)
+    
+    def _update_graphics_item_z_order(self) -> None:
+        """
+        更新图形项的z轴层级（自动调用）
+        
+        Note:
+            使用ZAxisManager统一处理Z轴设置
+        """
+        if self.graphics_item is not None:
+            from ..render import ZAxisManager
+            ZAxisManager.set_z_order(self.graphics_item, self.z_order)
+    
     def get_color_rgb(self) -> Tuple[int, int, int]:
         """获取颜色RGB值"""
         color_map = {
@@ -157,6 +196,7 @@ class BaseShape(ABC):
             'pen_width': self.pen_width.value,
             'visible': self.visible,
             'selected': self.selected,
+            'z_order': self.z_order,
             'metadata': self.metadata,
         }
     
