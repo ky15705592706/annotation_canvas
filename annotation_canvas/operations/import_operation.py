@@ -64,7 +64,6 @@ class ImportOperation(BaseOperation):
             # 导入设置
             self._import_settings()
             
-            logger.info(f"成功导入 {imported_count} 个图形")
             return True
             
         except Exception as e:

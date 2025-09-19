@@ -4,7 +4,7 @@
 
 from typing import Optional
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QMessageBox, QStatusBar
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF
+from PySide6.QtCore import Qt, Signal, QPointF, QRectF, QTimer
 from PySide6.QtGui import QMouseEvent, QWheelEvent, QKeyEvent, QKeySequence, QAction
 
 import pyqtgraph as pg
@@ -264,6 +264,63 @@ class AnnotationCanvas(PlotWidget):
         """清空所有图形"""
         self.controller.clear_all_shapes()
     
+    def clear_all_delayed(self, delay_ms: int = 0) -> None:
+        """
+        延迟清空所有图形
+        
+        Args:
+            delay_ms: 延迟时间（毫秒），0表示立即清空
+        """
+        # 延迟清空
+        QTimer.singleShot(delay_ms, self.clear_all)
+        logger.debug(f"已安排延迟清空，延迟{delay_ms}毫秒")
+    
+    def remove_shape_delayed(self, shape, delay_ms: int = 0) -> None:
+        """
+        延迟删除单个图形
+        
+        Args:
+            shape: 要删除的图形
+            delay_ms: 延迟时间（毫秒），0表示立即删除
+        """
+        QTimer.singleShot(delay_ms, lambda: self.remove_shape(shape))
+        logger.debug(f"已安排延迟删除图形，延迟{delay_ms}毫秒")
+    
+    def remove_shapes_delayed(self, shapes, delay_ms: int = 0) -> None:
+        """
+        延迟删除多个图形
+        
+        Args:
+            shapes: 要删除的图形列表
+            delay_ms: 延迟时间（毫秒），0表示立即删除
+        """
+        QTimer.singleShot(delay_ms, lambda: self._remove_shapes_batch(shapes))
+        logger.debug(f"已安排延迟删除{len(shapes)}个图形，延迟{delay_ms}毫秒")
+    
+    def remove_all_except_delayed(self, keep_shape, delay_ms: int = 0) -> None:
+        """
+        延迟删除除指定图形外的所有图形
+        
+        Args:
+            keep_shape: 要保留的图形
+            delay_ms: 延迟时间（毫秒），0表示立即删除
+        """
+        QTimer.singleShot(delay_ms, lambda: self._remove_all_except(keep_shape))
+        logger.debug(f"已安排延迟删除除指定图形外的所有图形，延迟{delay_ms}毫秒")
+    
+    def _remove_shapes_batch(self, shapes) -> None:
+        """批量删除图形"""
+        for shape in shapes:
+            self.remove_shape(shape)
+    
+    def _remove_all_except(self, keep_shape) -> None:
+        """删除除指定图形外的所有图形"""
+        all_shapes = self.get_shapes()
+        # 收集要删除的图形（排除要保留的图形）
+        shapes_to_remove = [shape for shape in all_shapes if shape != keep_shape]
+        # 使用批量删除方法
+        self._remove_shapes_batch(shapes_to_remove)
+    
     def update_display(self) -> None:
         """更新显示"""
         self.controller.update_display()
@@ -292,7 +349,6 @@ class AnnotationCanvas(PlotWidget):
         if success:
             # 更新状态栏
             self._update_status_bar()
-            logger.info("导入数据成功，可以通过 Ctrl+Z 撤销")
         
         return success
     
