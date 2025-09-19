@@ -270,7 +270,7 @@ class EventDataProvider:
     def _handle_all_shapes_request(self, event: Event):
         """处理所有图形请求"""
         request_id = event.data.get('request_id')
-        shapes = self.data_manager.get_all_shapes()
+        shapes = self.data_manager.get_shapes()
         
         # 发布响应事件
         self.event_bus.publish(Event(EventType.RESPONSE_ALL_SHAPES, {

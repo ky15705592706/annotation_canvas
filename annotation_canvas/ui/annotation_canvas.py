@@ -168,8 +168,6 @@ class AnnotationCanvas(pg.PlotWidget):
             # 默认模式：使用PlotWidget的默认行为（缩放坐标系）
             super().wheelEvent(event)
     
-    
-    
     # 键盘事件处理
     def keyPressEvent(self, event: QKeyEvent):
         """处理键盘按下事件"""
@@ -276,40 +274,28 @@ class AnnotationCanvas(pg.PlotWidget):
         return shape.get_z_order()
     
     # 延迟删除功能
-    def clear_all_delayed(self, delay_ms: int = 1000) -> None:
+    def clear_all_delayed(self, delay_ms: int = 0) -> None:
         """延迟清空所有图形"""
-        if delay_ms <= 0:
-            self.clear_all_shapes()
-        else:
-            QTimer.singleShot(delay_ms, self.clear_all_shapes)
+        QTimer.singleShot(delay_ms, self.clear_all_shapes)
     
-    def remove_shape_delayed(self, shape: BaseShape, delay_ms: int = 1000) -> None:
+    def remove_shape_delayed(self, shape: BaseShape, delay_ms: int = 0) -> None:
         """延迟删除单个图形"""
-        if delay_ms <= 0:
-            self.remove_shape(shape)
-        else:
-            QTimer.singleShot(delay_ms, lambda: self.remove_shape(shape))
+        QTimer.singleShot(delay_ms, lambda: self.remove_shape(shape))
     
-    def remove_shapes_delayed(self, shapes: List[BaseShape], delay_ms: int = 1000) -> None:
+    def remove_shapes_delayed(self, shapes: List[BaseShape], delay_ms: int = 0) -> None:
         """延迟删除多个图形"""
-        if delay_ms <= 0:
-            for shape in shapes:
-                self.remove_shape(shape)
-        else:
-            QTimer.singleShot(delay_ms, lambda: [self.remove_shape(shape) for shape in shapes])
+        QTimer.singleShot(delay_ms, lambda: [self.remove_shape(shape) for shape in shapes])
     
-    def remove_all_except_delayed(self, keep_shape: BaseShape, delay_ms: int = 1000) -> None:
+    def remove_all_except_delayed(self, keep_shape: BaseShape, delay_ms: int = 0) -> None:
         """延迟删除除指定图形外的所有图形"""
-        if delay_ms <= 0:
-            self._remove_all_except(keep_shape)
-        else:
-            QTimer.singleShot(delay_ms, lambda: self._remove_all_except(keep_shape))
+        QTimer.singleShot(delay_ms, lambda: self.remove_all_except(keep_shape))
     
-    def _remove_all_except(self, keep_shape: BaseShape) -> None:
+    def remove_all_except(self, keep_shape: BaseShape) -> None:
         """删除除指定图形外的所有图形"""
         all_shapes = self.get_shapes()
         shapes_to_remove = [shape for shape in all_shapes if shape != keep_shape]
-        self.remove_shapes_delayed(shapes_to_remove, 0)
+        for shape in shapes_to_remove:
+            self.controller.data_manager.remove_shape(shape)
     
     # 撤销重做
     def undo(self) -> None:
